@@ -11,6 +11,10 @@
 * Luer connectors. But if you're reading this, it's my guess you have a box of them in your lab somewhere anyway. (c:
 * 3/16" (or 5 mm) set screws. The design used 4-40 thread size since I'm in the USA, but any roughly equivalent diameter will work. 3 are needed for the pump wheel.
 * Miscellaneous M3 button cap hex machine screws. Nothing fancy, but the length will depend on which motor you choose.
+* [Dry-running MDS-filled nylon sleeve bearing](https://www.mcmaster.com/6294K401/). This is the exact one I used, and you need 3 of them.
+* [Acetal dowel pins](https://www.mcmaster.com/97155A426/). These are also the exact ones I use (1/8" diameter, 1/2" long; sorry to metric system colleague). You will need 3 total, but they come in a pack of 50.
+
+### Lastly:
 * *PCB with 2-channel custom instrumentation amplifier, integrated stepper motor control and 16-bit ADC (availability and cost is pending for the moment).*
 
 ## Note on the PCB:
