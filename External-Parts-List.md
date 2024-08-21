@@ -5,6 +5,7 @@
 * Adafruit [ItsyBitsy M4 Express](https://www.adafruit.com/product/3800). Be sure to get the male and female headers as well! You'll need both to build yourself.
 * Stepper motor driver, with equivalent pinout to [this one using the TMC2209 driver](https://www.amazon.com/gp/product/B07ZPV4HFP/).
 * 1.8° stepper motor. Either [NEMA-17](https://www.amazon.com/STEPPERONLINE-Bipolar-Stepper-22-6oz-Extruder/dp/B00PNEQ79Q/) or [NEMA-11](https://www.amazon.com/Iverntech-Stepper-Printer-Machine-Robotics/dp/B07PNV7RBW/) will work with the unit as designed.
+* Adjustable AC/DC power supply. I usually use [this one](https://www.amazon.com/gp/product/B07N18XN84/) since it has other tips to use long0-term. __This setup runs at 7.5V__.
 * [Silicone tubing](https://www.amazon.com/VictorsHome-Silicone-Flexible-Transfer-Transparent/dp/B09DKWWRSG) with 0.5 mm wall thickness. O.D. does not matter; pump works with 2 mm O.D. – 4 mm O.D. tubing.
 * 4-wire pressure transducer. I prefer [these disposable ones from MedLine](https://www.medline.com/product/Head/Z05-PF154670). You can either replace the RJ-11 connector or just cut the robber off to make it more accessible.
 * Luer connectors. But if you're reading this, it's my guess you have a box of them in your lab somewhere anyway. (c:
