@@ -1,5 +1,5 @@
 # External Parts list
-## Here is what you need to purchase to complete this build:
+## Here is what you need to purchase to complete this build (USA):
 
 * 3D printed parts included in this GitHub.
 * Adafruit [ItsyBitsy M4 Express](https://www.adafruit.com/product/3800). Be sure to get the male and female headers as well! You'll need both to build yourself.
@@ -22,7 +22,7 @@
 ## Note on the PCB:
 So there are probably other ways to do this off-the-shelf, but I designed and built a board for this. I am working on how to make it available through my facilities here at MSU, so please be patient. If you're good at soldering and have a forced-air soldering device, this is doable as a DIY. Otherwise it takes me about 90 minutes to put one together. Futher details on this are available by request.
 
-### UK Suppliers
+## Here is what you need to purchase to complete this build (UK):
 
 * 3D printed parts included in this GitHub.
 * [Adafruit ItsyBitsy M4 Express (w/ headers)](https://www.digikey.co.uk/en/products/detail/adafruit-industries-llc/3800/9448047).
