@@ -1,4 +1,4 @@
-/* This version includes external inpout to change pressure. All tension recording functions are disabled. Can be re-enabled for a second pressure
+/* This version includes external input to change pressure. All tension recording functions are disabled. Can be re-enabled for a second pressure
    transducer, but name should be changed to prevent confusion. */
 
 #include <Wire.h>
@@ -124,6 +124,7 @@
   } startup;
   struct sim_matrix {     //place to store values of the pulse simulation.
     bool valid;
+    int foo;
     int minmmHg;
     int maxmmHg;
     int pulseRate;
@@ -341,14 +342,16 @@ void bootup() {
 }
 
 void bootSim() {
-  sim = simulation.read();
-  if (sim.valid == false) {
-    delay(500);
+  // sim = simulation.read();
+  // if (sim.valid == false) {
+  //   delay(500);
     sim.minmmHg = 60;
-    sim.maxmmHg = 100;
+    sim.maxmmHg = 120;
     sim.pulseRate = 200;
-  }
+  // }
+  //  else {
     simSetup();
+  //  }
 }
 
 void calibration() {
