@@ -20,7 +20,7 @@
 /*TFT Setup*/
   #define TFT_CS A4
   #define TFT_DC A3
-  #define TFT_RST 13  // Or set to -1 and connect to Arduino RESET pin. This only needs to be 13 when using TensoMoto board v2.0 (May 2023)
+  #define TFT_RST -1  // Or set to -1 and connect to Arduino RESET pin. This only needs to be 13 when using TensoMoto board v2.0 (May 2023)
   Adafruit_ST7735 tft = Adafruit_ST7735(TFT_CS, TFT_DC, TFT_RST);
   int rainbow[34]{ 0x001F, 0x011F, 0x021F, 0x031F, 0x041F, 0x051F, 0x061F, 0x071F, 0x07FF, 0x07FC, 0x07F8, 0x07F4, 0x07F0, 0x07EC, 0x07E8, 0x07E4, 0x07E0, 0x27E0, 0x47E0, 0x67E0, 0x87E0, 0xA7E0, 0xC7E0, 0xE7E0, 0xFFE0, 0xFF00, 0xFE00, 0xFD00, 0xFC00, 0xFB00, 0xFA00, 0xF900, 0xF800 };
 
@@ -1344,18 +1344,18 @@ void isRunningSim() {
   currentMillis = millis() - startMillis;
   if (currentMillis - previousMillis >= startup.timeDelay) {
     averagingPressure(startup.numSamples);
-    averagingTension(startup.numSamples);
+    // averagingTension(startup.numSamples);
     currentTime = (currentMillis / 1000.00);
     sprintf(pressure, "%.1f ", avgPressure);
     printWords(0, 2, 16, 24, ST77XX_CYAN, pressure);
-    sprintf(tension, "%.1f  ", avgTension);
+    // sprintf(tension, "%.1f  ", avgTension);
     // printWords(0, 2, 106, 24, ST77XX_CYAN, tension);
-    sprintf(rate, "%-.2f", actualRate);
-    sprintf(time, "%-.1f", currentTime);
+    // sprintf(rate, "%-.2f", actualRate);
+    // sprintf(time, "%-.1f", currentTime);
     printWords(0, 2, 80, 64, ST77XX_CYAN, rate);
     printWords(0, 2, 80, 84, ST77XX_CYAN, time);
-    sprintf(RunningOutputSim, "%-.2f; %.2f; %.2f; %.1f", currentTime, avgPressure, avgTension, actualRate);
-    Serial.println(RunningOutputSim);
+    // sprintf(RunningOutputSim, "%-.2f; %.2f; %.2f; %.1f", currentTime, avgPressure, avgTension, actualRate);
+    Serial.println(avgPressure);
     previousMillis = currentMillis;
   }
   while (digitalRead(enSW) == 0) {
