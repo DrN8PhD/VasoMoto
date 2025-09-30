@@ -17,7 +17,7 @@
 * [Acetal dowel pins](https://www.mcmaster.com/97155A426/). These are also the exact ones I use (1/8" diameter, 1/2" long; sorry to metric system colleague). You will need 3 total, but they come in a pack of 50.
 
 ### Lastly:
-* *PCB with 2-channel custom instrumentation amplifier, integrated stepper motor control and 16-bit ADC (availability and cost is pending for the moment).*
+* *PCB with 2-channel custom instrumentation amplifier, integrated stepper motor control and 16-bit ADC ($495 through the MSU Cubi3c Core Facility).*
 
 ## Note on the PCB:
 So there are probably other ways to do this off-the-shelf, but I designed and built a board for this. I am working on how to make it available through my facilities here at MSU, so please be patient. If you're good at soldering and have a forced-air soldering device, this is doable as a DIY. Otherwise it takes me about 90 minutes to put one together. Futher details on this are available by request.
