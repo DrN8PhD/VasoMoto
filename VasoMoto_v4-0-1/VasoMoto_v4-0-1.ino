@@ -243,7 +243,8 @@ void setup() {
     stepper.setStepFracSpeed(8, stepsPerSec);
     bootSim();
     testType();
-    while (fillLines == true) {
+  }
+while (fillLines == true) {
       lineFilling();
       tft.fillScreen(ST7735_BLACK);
       initScreenSim();
@@ -252,9 +253,8 @@ void setup() {
       printNumber(2, 110, 67, 0xfb2c, ST77XX_BLACK, maxmmHg);
       printNumber(2, 110, 87, 0xfb2c, ST77XX_BLACK, pulseRate);
       testType();
-      delay(500);
+      // delay(500);
     }
-  }
 stepper.setStepFracSpeed(8, stepsPerSec);
 writingToFlash();
 initialize.write(startup);
@@ -364,7 +364,6 @@ void advancedSettings() {
   startup.valid = true;
   delay(100);
   bootup();
-  // NVIC_SystemReset();
 }
 
 void averagingPressure(int q) {
@@ -390,7 +389,7 @@ void bootup() {
       buffidx++;
     }
   }
-  printWords(0, 1, 80, 120, ST77XX_RED, "v4.0.1");
+  printWords(0, 1, 80, 120, ST77XX_RED, "v4.0.1a");
     if (startup.valid == false) {
     delay(1000);
     tft.fillRect(0, 100, 160, 28, ST77XX_BLACK);
@@ -717,6 +716,7 @@ void lineFilling() {
     }
   }
   while (digitalRead(enSW) == 0) {
+  delay(100);
   }
 }
 
@@ -1278,21 +1278,19 @@ void SimScreen(uint16_t color, const char *state) {
 void testType() {
   encoderPos = 0;
   const char *testMenu[] = { "Line Fill", "Triangle", "Sim Pulse", "Reset?" };
-  int testCounter;
   while (digitalRead(enSW)) {
-    testCounter = encoderPos;
-    if (testCounter < 0) { testCounter = 0; }
-    if (testCounter > 3) { testCounter = 3; }
+    encoderLimit(0,3);
     listBox(69, 105, 90, 23, ST77XX_BLACK);
-    printWords(9, 1, 70, 118, ST77XX_WHITE, testMenu[testCounter]);
+    printWords(9, 1, 70, 118, ST77XX_WHITE, testMenu[encoderPos]);
   }
   while (digitalRead(enSW) == 0) {
-    expType = testCounter;
-    printWords(9, 1, 70, 118, 0xfb2c, testMenu[testCounter]);
+    expType = encoderPos;
+    printWords(9, 1, 70, 118, 0xfb2c, testMenu[encoderPos]);
   }
   if (expType == 0) {
     fillLines = true;
     Serial.println("Line Filling");
+    delay(100);
   }
   if (expType == 1) {
     fillLines = false;
