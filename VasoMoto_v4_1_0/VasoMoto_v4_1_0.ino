@@ -400,43 +400,6 @@ void writingToFlash() {
   sim._pulseRate = pulseRate;
 }
 
-//Listen to the serial port to receive data, but only in a certain way
-void recvWithStartEndMarkers() {
-  static bool recvInProgress = false;
-  static byte ndx = 0;
-  char startMarker = '<';
-  char endMarker = '>';
-  char rc;
-  while (Serial.available() > 0 && newData == false) {
-    rc = Serial.read();
-    if (recvInProgress == true) {
-      if (rc != endMarker) {
-        receivedChars[ndx] = rc;
-        ndx++;
-        if (ndx >= numChars) {
-          ndx = numChars - 1;
-        }
-      }
-      else {
-        receivedChars[ndx] = '\0'; // terminate the string
-        recvInProgress = false;
-        ndx = 0;
-        newData = true;
-      }
-    }
-    else if (rc == startMarker) {
-      recvInProgress = true;
-    }
-  }
-}
-
-void showNewData() {
-  if (newData == true) {
-    encoderPos = atoi(receivedChars);
-    newData = false;
-  }
-}
-
 //Extra setup functions.
 void advancedSettings() {
   tft.fillScreen(ST7735_BLACK);
@@ -490,11 +453,9 @@ void bootup() {
     acceleration = 50;
     advancedSettings();  
   }
-
-// --- bootSim() ---
-// Purpose: High-level behavior of `bootSim`.
 }
 
+//setting a reasonable starting pressure and pulse for simukator.
 void bootSim() {
   if (sim.valid == false) {
     minmmHg = 60;
@@ -502,40 +463,26 @@ void bootSim() {
     pulseRate = 200;
   }
     simSetup();
-
-// --- calibration() ---
-// Interactive calibration routine for sensors; guides through points and stores coefficients.
 }
 
+// Interactive calibration routine for sensors; guides through points and stores coefficients.
 void calibration() {
   const char *calMenu[] = { "Load", "New", "N/A" };
   encoderPos = 0;
   if(moto == true) {
     initScreenMoto();
-
-// --- if() ---
-// Purpose: High-level behavior of `if`.
   }
   else if(moto == false) {
     initScreenSim();
-
-// --- while() ---
-// Purpose: High-level behavior of `while`.
   }
   while (digitalRead(enSW)) {
     choice = encoderPos;
     encoderLimit(0, 2);
     listBox(89, 27, 70, 14, ST77XX_BLACK);
     printWords(9, 1, 90, 39, ST77XX_WHITE, calMenu[choice]);
-
-// --- while() ---
-// Purpose: High-level behavior of `while`.
   }
   while (digitalRead(enSW) == 0) {
     printWords(9, 1, 90, 39, 0xfb2c, calMenu[choice]);
-
-// --- if() ---
-// Purpose: High-level behavior of `if`.
   }
   if (choice == 0) {
     if (calib.valid == true) {
@@ -547,7 +494,7 @@ void calibration() {
       calibrationOrder = 1;
       calWords();
       calNums();
-      // offsetTension();
+      // offsetTension();     //add or remove, depending on # of sensors
       tft.fillScreen(ST77XX_BLACK);
       if(moto == false) {
         initScreenSim();
@@ -557,13 +504,10 @@ void calibration() {
     else {
       calibration();
     }
-
-// --- if() ---
-// Purpose: High-level behavior of `if`.
   }
   if (choice == 1) {
     delay(250);
-    // calibrationOrder = 0;
+    // calibrationOrder = 0;    //add or remove, depending on # of sensors
     calWords();
     PressureADCLow();
     PressureSelLow();
@@ -571,13 +515,13 @@ void calibration() {
     PressureSelHigh();
     delay(200);
     offsetPressure();
-    // calibrationOrder = 1;
-    // calWords();
-    // TensionADCLow();
-    // TensionSelLow();
-    // TensionADCHigh();
-    // TensionSelHigh();
-    // offsetTension();
+    // calibrationOrder = 1;    //add or remove, depending on # of sensors
+    // calWords();              //add or remove, depending on # of sensors
+    // TensionADCLow();         //add or remove, depending on # of sensors
+    // TensionSelLow();         //add or remove, depending on # of sensors
+    // TensionADCHigh();        //add or remove, depending on # of sensors
+    // TensionSelHigh();        //add or remove, depending on # of sensors
+    // offsetTension();         //add or remove, depending on # of sensors
     tft.fillScreen(ST77XX_BLACK);
     calib.valid = true;
     if (moto == true) {
@@ -585,9 +529,6 @@ void calibration() {
       calibrate.write(calib);
       printWords(9, 1, 102, 39, 0xfb2c, "Done");
       delay(1000);
-
-// --- if() ---
-// Purpose: High-level behavior of `if`.
     }
     else if(moto == false) {
       initScreenSim();
@@ -595,9 +536,6 @@ void calibration() {
       printWords(9, 1, 102, 39, 0xfb2c, "Done");
       delay(1000);
     }
-
-// --- if() ---
-// Purpose: High-level behavior of `if`.
   }
   if (choice == 2) {
     tft.fillScreen(ST77XX_BLACK);
@@ -616,7 +554,7 @@ void calibration() {
     tHiSel = 0;
     calWords();
     calNums();
-    // offsetTension();
+    // offsetTension();   //add or remove, depending on # of sensors
     tft.fillScreen(ST77XX_BLACK);
     if(moto == false) {
       initScreenSim();
@@ -627,20 +565,15 @@ void calibration() {
   }
   writingToFlash();
   calibrate.write(calib);
-
-// --- calNums() ---
-// Calibration numeric prompt helper: capture/display numbers.
 }
 
+// Calibration numeric prompt helper: capture/display numbers.
 void calNums() {
   if (calibrationOrder == 0) {
     printCalNumber(2, 90, 26, ST77XX_WHITE, ST77XX_BLACK, pLowADC, 6);
     printCalNumber(2, 90, 46, ST77XX_WHITE, ST77XX_BLACK, pLowSel, 6);
     printCalNumber(2, 90, 66, ST77XX_WHITE, ST77XX_BLACK, pHiADC, 6);
     printCalNumber(2, 90, 86, ST77XX_WHITE, ST77XX_BLACK, pHiSel, 6);
-
-// --- if() ---
-// Purpose: High-level behavior of `if`.
   }
   else if (calibrationOrder == 1) {
     printCalNumber(2, 90, 26, ST77XX_WHITE, ST77XX_BLACK, tLowADC, 6);
@@ -648,18 +581,13 @@ void calNums() {
     printCalNumber(2, 90, 66, ST77XX_WHITE, ST77XX_BLACK, tHiADC, 6);
     printCalNumber(2, 90, 86, ST77XX_WHITE, ST77XX_BLACK, tHiSel, 6);
   }
-
-// --- calWords() ---
-// Calibration text prompt helper: capture/display strings.
 }
 
+// Calibration text prompt helper: capture/display strings.
 void calWords() {
   tft.fillScreen(ST77XX_BLACK);
   if (calibrationOrder == 0) {
     printWords(9, 0, 2, 19, 0x64df, "Calibrate Pressure");
-
-// --- if() ---
-// Purpose: High-level behavior of `if`.
   }
   else if (calibrationOrder == 1) {
     printWords(9, 1, 2, 19, 0x64df, "Calibrate Tension");
@@ -674,11 +602,9 @@ void calWords() {
   printWords(9, 1, 2, 99, 0x04d3, "Sel Max:");
   tft.drawFastHLine(2, 104, 158, 0xfe31);
   printWords(9, 1, 2, 119, 0x04d3, "Offset:");
-
-// --- chooseMode() ---
-// Mode selection UI: lets user pick RUN/SIM/ADV paths.
 }
 
+// Mode selection UI: lets user pick RUN/SIM/ADV paths.
 void chooseMode() {
   const char *modeMenu[] = {"Turn to Select Mode","Pressure Control","Pressure Ramp","Advanced Settings" };
   encoderPos = 0;
@@ -686,36 +612,24 @@ void chooseMode() {
     encoderLimit(0, 3);
     listBox(0, 100, 160, 28, ST77XX_BLACK);
     printWords(8, 1, 7, 111, ST77XX_WHITE, modeMenu[encoderPos]);  
-
-// --- while() ---
-// Purpose: High-level behavior of `while`.
   }
   while (digitalRead(enSW) == 0) {
     int switchChoice = encoderPos;
     if (switchChoice == 0) {
       bootup();
       chooseMode();
-
-// --- if() ---
-// Purpose: High-level behavior of `if`.
     }
     if (switchChoice == 1) {
       printWords(8, 1, 7, 111, 0xfb2c, modeMenu[encoderPos]);  
       moto = true;
       delay(500);
       tft.fillScreen(ST77XX_BLACK);
-
-// --- if() ---
-// Purpose: High-level behavior of `if`.
     }
     if (switchChoice == 2) {
       printWords(8, 1, 7, 111, 0xfb2c, modeMenu[encoderPos]);  
       moto = false;
       delay(500);
       tft.fillScreen(ST77XX_BLACK);
-
-// --- if() ---
-// Purpose: High-level behavior of `if`.
     }
     if (switchChoice == 3) {
       printWords(8, 1, 7, 111, 0xfb2c, modeMenu[encoderPos]);  
@@ -724,27 +638,19 @@ void chooseMode() {
       tft.fillScreen(ST77XX_BLACK);
     }
   }
-
-// --- clickBegin() ---
-// Purpose: High-level behavior of `clickBegin`.
 }
 
 void clickBegin () {
   printWords(8, 1, 30, 121, 0x64df, "Click to Begin");
   while (digitalRead(enSW)) {
-
-// --- while() ---
-// Purpose: High-level behavior of `while`.
   }
   while (digitalRead(enSW) == 0) {
     encoderPos = 0;
     tft.fillScreen(ST7735_BLACK);
   }
-
-// --- drawColorBar() ---
-// Purpose: High-level behavior of `drawColorBar`.
 }
 
+// Purpose: High-level behavior of `drawColorBar`.
 void drawColorBar(int ctrl, int spotx, int spoty, int height, int pix) {
   int value = abs(ctrl);
   for (int i = 0; i < 33; i++) {
@@ -755,26 +661,19 @@ void drawColorBar(int ctrl, int spotx, int spoty, int height, int pix) {
       tft.fillRect(spotx + (i * pix), spoty, pix / 2, height, ST77XX_BLACK);
     }
   }
-
-// --- encoderLimit() ---
-// Purpose: High-level behavior of `encoderLimit`.
 }
 
+// Easy way to keep encoder from going too far in menus.
 void encoderLimit(int min, int max) {
   if (encoderPos < min) { 
     encoderPos = min; 
-
-// --- if() ---
-// Purpose: High-level behavior of `if`.
   }
   if (encoderPos > max) {
     encoderPos = max;
   }
-
-// --- fillFast() ---
-// Purpose: High-level behavior of `fillFast`.
 }
 
+//for filling. fast.
 void fillFast() {
   int stepDelay = 800;
   stepper.setStepFrac(8);
@@ -782,9 +681,6 @@ void fillFast() {
   filler = (encoderPos - avgPressure);
   if (filler <= -1) {
     stepper.move(1, stepDelay, 1);
-
-// --- if() ---
-// Purpose: High-level behavior of `if`.
   }
   else if (filler >= 1) {
     stepper.move(1, stepDelay, -1);
@@ -792,9 +688,6 @@ void fillFast() {
   else {
     stepper.move(0, stepDelay, -1);
   }
-
-// --- initScreenAccel() ---
-// Purpose: High-level behavior of `initScreenAccel`.
 }
 
 void initScreenAccel() {
@@ -809,9 +702,6 @@ void initScreenAccel() {
   printWords(9, 1, 2, 99, 0x04d3, "mmHg/min:");
   tft.drawFastHLine(2, 104, 158, 0xfe31);
   printWords(9, 1, 2, 119, 0x04d3, "Accel:");
-
-// --- initScreenAdjust() ---
-// Purpose: High-level behavior of `initScreenAdjust`.
 }
 
 void initScreenAdjust() {
@@ -826,9 +716,6 @@ void initScreenAdjust() {
   printWords(9, 1, 2, 99, 0x04d3, "mmHg/min:");
   tft.drawFastHLine(2, 104, 158, 0xfe31);
   printWords(9, 1, 2, 119, 0x04d3, "Multiplier:");
-
-// --- initScreenMoto() ---
-// Prepare and draw the RUN mode screen.
 }
 
 void initScreenMoto() {
@@ -836,9 +723,6 @@ void initScreenMoto() {
   tft.drawFastHLine(2, 24, 158, 0xfe31);
   printWords(9, 1, 2, 39, 0x04d3, "Calibrate:");
   tft.drawFastHLine(2, 44, 158, 0xfe31);
-
-// --- initScreenSim() ---
-// Prepare and draw the SIM mode screen.
 }
 
 void initScreenSim() {
@@ -853,9 +737,6 @@ void initScreenSim() {
   printWords(9, 1, 2, 99, 0x04d3, "mmHg/min:");
   tft.drawFastHLine(2, 104, 158, 0xfe31);
   printWords(9, 1, 2, 119, 0x04d3, "Type:");
-
-// --- initScreenAdv() ---
-// Prepare and draw the Advanced Settings screen.
 }
 
 void initScreenAdv() {
@@ -870,9 +751,6 @@ void initScreenAdv() {
   printWords(9, 1, 2, 99, 0x04d3, "Multiplier:");
   tft.drawFastHLine(2, 104, 158, 0xfe31);
   printWords(9, 1, 2, 119, 0x04d3, "Accel (ms):");
-
-// --- lineFilling() ---
-// UI input helper: read encoder to adjust a numeric field; respects PC/manual arbitration guard.
 }
 
 void lineFilling() {
@@ -895,15 +773,12 @@ void lineFilling() {
   int mmHg = minmmHg;
   if (mmHg > 0) {
     encoderPos = mmHg;
-
-// --- while() ---
-// Purpose: High-level behavior of `while`.
   }
   while (digitalRead(enSW)) {
     stepper.setStepFracSpeed(8, stepsPerSec);
     fillFast();
     if (!_vm_pcActive) { sel_pressure = encoderPos; }
-currentMillis = millis();
+      currentMillis = millis();
     if (currentMillis - previousMillis >= timeDelay) {
       averagingPressure(numSamples);
       sprintf(selected, " %d ", sel_pressure);
@@ -912,26 +787,18 @@ currentMillis = millis();
       printWords(0, 3, 80, 39, ST77XX_WHITE, selected);
       previousMillis = currentMillis;
     }
-
-// --- while() ---
-// Purpose: High-level behavior of `while`.
   }
   while (digitalRead(enSW) == 0) {
   delay(100);
   }
-
-// --- listBox() ---
-// Purpose: High-level behavior of `listBox`.
 }
 
+//A black box that keeps menus from overlapping in an unreadable way.
 void listBox(uint8_t posX, uint8_t posY, uint8_t wide, uint8_t high, uint16_t fontColor) {
   if (box == true) {
     tft.fillRect(posX, posY, wide, high, fontColor);
     box = false;
   }
-
-// --- MotoScreen() ---
-// Purpose: High-level behavior of `MotoScreen`.
 }
 
 void MotoScreen(uint16_t color, const char *state) {
@@ -955,9 +822,6 @@ void MotoScreen(uint16_t color, const char *state) {
   tft.drawFastVLine(140, 97, 3, ST77XX_CYAN);
   tft.drawFastVLine(159, 95, 5, ST77XX_CYAN);
   printWords(0, 3, 106, 48, ST77XX_BLUE, selected);  
-
-// --- offsetPressure() ---
-// Purpose: High-level behavior of `offsetPressure`.
 }
 
 void offsetPressure() {
@@ -987,9 +851,6 @@ void offsetPressure() {
     char tempOffset[10];
     sprintf(tempOffset, "%.1f ", tempAvg);
     printWords(0, 2, 102, 106, ST77XX_WHITE, tempOffset);
-
-// --- while() ---
-// Purpose: High-level behavior of `while`.
   }
   while (digitalRead(enSW) == 0) {
     pLowADC = tempLowADC;
@@ -997,9 +858,6 @@ void offsetPressure() {
     pLowSel = tempLowSel;
     pHiSel = tempHighSel;
   }
-
-// --- offsetTension() ---
-// Purpose: High-level behavior of `offsetTension`.
 }
 
 void offsetTension() {
@@ -1027,17 +885,11 @@ void offsetTension() {
     char tempOffset[10];
     sprintf(tempOffset, "%.1f ", tempAvg);
     printWords(0, 2, 102, 106, ST77XX_WHITE, tempOffset);
-
-// --- while() ---
-// Purpose: High-level behavior of `while`.
   }
   while (digitalRead(enSW) == 0) {
     tLowADC = tempLowADC;
     tHiADC = tempHighADC;
   }
-
-// --- oscillate() ---
-// Purpose: High-level behavior of `oscillate`.
 }
 
 void oscillate(float z) {
@@ -1046,19 +898,14 @@ void oscillate(float z) {
   motors = (z - avgPressure);
   if (motors <= -2) {
     stepper.move(1, pulseInt, 1);
-
-// --- if() ---
-// Purpose: High-level behavior of `if`.
   } else if (motors >= 2) {
     stepper.move(1, pulseInt, -1);
   } else {  
     stepper.move(0, pulseInt, 1);
   }
-
-// --- pressureControl() ---
-// Closed-loop control toward 'sel_pressure' using 'avgPressure'; applies clamps/rate limits and drives the actuator.
 }
 
+// Closed-loop control toward 'sel_pressure' using 'avgPressure'; applies clamps/rate limits and drives the actuator.
 void pressureControl(int accel) {
   float motors;
   int minDelay = 1000;
@@ -1077,9 +924,6 @@ void pressureControl(int accel) {
     previousMicros = currentMicros;
     }
     stepper.move(1, goUp, 1);
-
-// --- if() ---
-// Purpose: High-level behavior of `if`.
   }
    else if (motors >= 0.3) {
     if (currentMicros - previousMicros >= accel) {
@@ -1102,11 +946,9 @@ void pressureControl(int accel) {
       y = 1;
       stepper.move(0, 0, -1);
   }
-
-// --- pressureRamp() ---
-// Time-based stepping/ramping of 'sel_pressure' for experimental protocols.
 }
 
+// Time-based stepping/ramping of 'sel_pressure' for experimental protocols.
 void pressureRamp(int accel) {
   float motors;
   int minDelay = 500;
@@ -1114,21 +956,12 @@ void pressureRamp(int accel) {
   motors = (sel_pressure - avgPressure);
   if (motors <= -1) {
     stepper.move(1, 1800, 1);
-
-// --- if() ---
-// Purpose: High-level behavior of `if`.
   }
   else if (motors > -1 && motors <= -0.3) {
     stepper.move(1, 3000, 1);
-
-// --- if() ---
-// Purpose: High-level behavior of `if`.
   }
    else if (motors >= 0.3 && motors < 1) {
     stepper.move(1, 3000, -1);
-
-// --- if() ---
-// Purpose: High-level behavior of `if`.
    }
   else if (motors >= 1) {
     stepper.move(1, 1800, -1);
@@ -1136,9 +969,6 @@ void pressureRamp(int accel) {
     else {
       stepper.move(0, 0, -1);
   }
-
-// --- PressureADCHigh() ---
-// Purpose: High-level behavior of `PressureADCHigh`.
 }
 
 void PressureADCHigh() {
@@ -1161,17 +991,11 @@ void PressureADCHigh() {
     sprintf(buffer, "%d ", firstADC);
     printWords(0, 2, 90, 66, ST77XX_WHITE, buffer);
     delay(200);
-
-// --- while() ---
-// Purpose: High-level behavior of `while`.
   }
   while (digitalRead(enSW) == 0) {
     pHiADC = firstADC;
     delay(200);
   }
-
-// --- PressureADCLow() ---
-// Purpose: High-level behavior of `PressureADCLow`.
 }
 
 void PressureADCLow() {
@@ -1195,17 +1019,11 @@ void PressureADCLow() {
     sprintf(buffer, "%d ", firstADC);
     printWords(0, 2, 90, 26, ST77XX_WHITE, buffer);
     delay(200);
-
-// --- while() ---
-// Purpose: High-level behavior of `while`.
   }
   while (digitalRead(enSW) == 0) {
     pLowADC = firstADC;
     delay(200);
   }
-
-// --- PressureSelHigh() ---
-// Purpose: High-level behavior of `PressureSelHigh`.
 }
 
 void PressureSelHigh() {
@@ -1214,17 +1032,11 @@ void PressureSelHigh() {
     char buffer[10];
     sprintf(buffer, "%d ", encoderPos);
     printWords(0, 2, 90, 86, ST77XX_WHITE, buffer);
-
-// --- while() ---
-// Purpose: High-level behavior of `while`.
   }
   while (digitalRead(enSW) == 0) {
     pHiSel = encoderPos;
     delay(200);
   }
-
-// --- PressureSelLow() ---
-// Purpose: High-level behavior of `PressureSelLow`.
 }
 
 void PressureSelLow() {
@@ -1233,17 +1045,11 @@ void PressureSelLow() {
     char buffer2[10]; 
     sprintf(buffer2, "%d ", encoderPos);
     printWords(0, 2, 90, 46, ST77XX_WHITE, buffer2);
-
-// --- while() ---
-// Purpose: High-level behavior of `while`.
   }
   while (digitalRead(enSW) == 0) {
     pLowSel = encoderPos;
     delay(200);
   }
-
-// --- simAdjust() ---
-// Purpose: High-level behavior of `simAdjust`.
 }
 
 void simAdjust() {
@@ -1257,9 +1063,6 @@ void simAdjust() {
   delay(200);
   sim.valid = true;
   encoderPos = 0;
-
-// --- simSetup() ---
-// Purpose: High-level behavior of `simSetup`.
 }
 
 void simSetup() {
@@ -1270,9 +1073,6 @@ void simSetup() {
   selectRate();
   delay(100);
   sim.valid = true;
-
-// --- TensionADCHigh() ---
-// Purpose: High-level behavior of `TensionADCHigh`.
 }
 
 void TensionADCHigh() {
@@ -1295,17 +1095,11 @@ void TensionADCHigh() {
     sprintf(buffer, "%d ", firstADC);
     printWords(0, 2, 90, 66, ST77XX_WHITE, buffer);
     delay(200);
-
-// --- while() ---
-// Purpose: High-level behavior of `while`.
   }
   while (digitalRead(enSW) == 0) {
     tHiADC = firstADC;
     delay(200);
   }
-
-// --- TensionADCLow() ---
-// Purpose: High-level behavior of `TensionADCLow`.
 }
 
 void TensionADCLow() {
@@ -1329,17 +1123,11 @@ void TensionADCLow() {
     sprintf(buffer, "%d ", firstADC);
     printWords(0, 2, 90, 26, ST77XX_WHITE, buffer);
     delay(200);
-
-// --- while() ---
-// Purpose: High-level behavior of `while`.
   }
   while (digitalRead(enSW) == 0) {
     tLowADC = firstADC;
     delay(200);
   }
-
-// --- TensionSelHigh() ---
-// Purpose: High-level behavior of `TensionSelHigh`.
 }
 
 void TensionSelHigh() {
@@ -1348,17 +1136,11 @@ void TensionSelHigh() {
     char buffer[10];
     sprintf(buffer, "%d ", encoderPos);
     printWords(0, 2, 90, 86, ST77XX_WHITE, buffer);
-
-// --- while() ---
-// Purpose: High-level behavior of `while`.
   }
   while (digitalRead(enSW) == 0) {
     tHiSel = encoderPos;
     delay(200);
   }
-
-// --- TensionSelLow() ---
-// Purpose: High-level behavior of `TensionSelLow`.
 }
 
 void TensionSelLow() {
@@ -1367,17 +1149,11 @@ void TensionSelLow() {
     char buffer[10]; 
     sprintf(buffer, "%d ", encoderPos);
     printWords(0, 2, 90, 46, ST77XX_WHITE, buffer);
-
-// --- while() ---
-// Purpose: High-level behavior of `while`.
   }
   while (digitalRead(enSW) == 0) {
     tLowSel = encoderPos;
     delay(200);
   }
-
-// --- printHeader() ---
-// Purpose: High-level behavior of `printHeader`.
 }
 
 void printHeader() {
@@ -1394,9 +1170,6 @@ void printHeader() {
   sprintf(bufferHP, "Max Pressure: %d mmHg", maxmmHg); Serial.println(bufferHP);
   sprintf(bufferPR, "Ramp Rate: %d mmHg/min", pulseRate); Serial.println(bufferPR);
   Serial.println("----------------------------------------");
-
-// --- printNumber() ---
-// Purpose: High-level behavior of `printNumber`.
 }
 
 void printNumber(int fontSize, int posX, int posY, uint16_t fontColor, uint16_t fontBkg, double num) {
@@ -1406,9 +1179,6 @@ void printNumber(int fontSize, int posX, int posY, uint16_t fontColor, uint16_t 
   tft.setCursor(posX, posY);
   dtostrf(num, 6, 1, number);
   tft.print(number);
-
-// --- printCalNumber() ---
-// Purpose: High-level behavior of `printCalNumber`.
 }
 
 void printCalNumber(int fontSize, int posX, int posY, uint16_t fontColor, uint16_t fontBkg, double num, int width) {
@@ -1418,27 +1188,15 @@ void printCalNumber(int fontSize, int posX, int posY, uint16_t fontColor, uint16
   tft.setCursor(posX, posY);
   dtostrf(num, width, 0, number);
   tft.print(number);
-
-// --- printWords() ---
-// Purpose: High-level behavior of `printWords`.
 }
 
 void printWords(byte font, int fontSize, int posX, int posY, uint16_t fontColor, const char *words) {
   if (font == 9) {
     tft.setFont(&FreeSansBold9pt7b);
-
-// --- if() ---
-// Purpose: High-level behavior of `if`.
   } else if (font == 7) {
     tft.setFont(&FreeSansBold7pt7b);
-
-// --- if() ---
-// Purpose: High-level behavior of `if`.
   } else if (font == 8) {
     tft.setFont(&FreeSansBold8pt7b);
-
-// --- if() ---
-// Purpose: High-level behavior of `if`.
   } else if (font == 0) {
     tft.setFont();
   }
@@ -1446,9 +1204,6 @@ void printWords(byte font, int fontSize, int posX, int posY, uint16_t fontColor,
   tft.setCursor(posX, posY);
   tft.setTextColor(fontColor, ST77XX_BLACK);
   tft.print(words);
-
-// --- selectAcceleration() ---
-// Purpose: High-level behavior of `selectAcceleration`.
 }
 
 void selectAcceleration() {
@@ -1462,17 +1217,11 @@ void selectAcceleration() {
     accelCounter = encoderPos;
     sprintf(buffer, " %3d", accelCounter);
     printWords(0, 2, 110, 107, ST77XX_WHITE, buffer);
-
-// --- while() ---
-// Purpose: High-level behavior of `while`.
   }
   while (digitalRead(enSW) == 0) {
     acceleration = accelCounter;
     printWords(0, 2, 110, 107, 0xfb2c, buffer);
   }
-
-// --- selectAccelAdjust() ---
-// Purpose: High-level behavior of `selectAccelAdjust`.
 }
 
 void selectAccelAdjust() {
@@ -1484,17 +1233,11 @@ void selectAccelAdjust() {
     accelCounter = tempAccel + encoderPos;
     sprintf(buffer, "%3d", accelCounter);
     printWords(0, 2, 110, 107, ST77XX_WHITE, buffer);
-
-// --- while() ---
-// Purpose: High-level behavior of `while`.
   }
   while (digitalRead(enSW) == 0) {
     acceleration = accelCounter;
     printWords(0, 2, 110, 107, 0xfb2c, buffer);
   }
-
-// --- selectFilterWeight() ---
-// Adjust filter weighting used in pressure smoothing.
 }
 
 void selectFilterWeight() {
@@ -1508,17 +1251,11 @@ void selectFilterWeight() {
     filterCounter = (encoderPos * 3);
     sprintf(buffer, " %3d", filterCounter);
     printWords(0, 2, 110, 67, ST77XX_WHITE, buffer);
-
-// --- while() ---
-// Purpose: High-level behavior of `while`.
   }
   while (digitalRead(enSW) == 0) {
     filterWeight = filterCounter;
     printWords(0, 2, 110, 67, 0xfb2c, buffer);
   }
-
-// --- selectMaxPressure() ---
-// Set safety ceiling for allowable pressure.
 }
 
 void selectMaxPressure() {
@@ -1529,17 +1266,11 @@ void selectMaxPressure() {
     maxCounter = maxmmHg + encoderPos;
     sprintf(buffer, " %3d", maxCounter);
     printWords(0, 2, 110, 67, ST77XX_WHITE, buffer);
-
-// --- while() ---
-// Purpose: High-level behavior of `while`.
   }
   while (digitalRead(enSW) == 0) {
     maxmmHg = maxCounter;
     printWords(0, 2, 110, 67, 0xfb2c, buffer);
   }
-
-// --- selectMinPressure() ---
-// Set safety floor for allowable pressure.
 }
 
 void selectMinPressure() {
@@ -1550,17 +1281,11 @@ void selectMinPressure() {
     minCounter = minmmHg + encoderPos;
     sprintf(buffer, " %3d", minCounter);
     printWords(0, 2, 110, 47, ST77XX_WHITE, buffer);
-
-// --- while() ---
-// Purpose: High-level behavior of `while`.
   }
   while (digitalRead(enSW) == 0) {
     minmmHg = minCounter;
     printWords(0, 2, 110, 47, 0xfb2c, buffer);
   }
-
-// --- selectMultiplier() ---
-// Adjust scaling multiplier used in UI/control math.
 }
 
 void selectMultiplier() {
@@ -1572,17 +1297,11 @@ void selectMultiplier() {
     multCounter = tempMult + encoderPos;
     sprintf(buffer, "%.0f ", multCounter);
     printWords(0, 2, 110, 87, ST77XX_WHITE, buffer);
-
-// --- while() ---
-// Purpose: High-level behavior of `while`.
   }
   while (digitalRead(enSW) == 0) {
     multiplier = multCounter;
     printWords(0, 2, 110, 87, 0xfb2c, buffer);
   }
-
-// --- selectMultiplierAdjust() ---
-// Fine-tune the multiplier step size.
 }
 
 void selectMultiplierAdjust() {
@@ -1594,17 +1313,11 @@ void selectMultiplierAdjust() {
     multCounter = tempMult + encoderPos;
     sprintf(buffer, "%.0f ", multCounter);
     printWords(0, 2, 110, 107, ST77XX_WHITE, buffer);
-
-// --- while() ---
-// Purpose: High-level behavior of `while`.
   }
   while (digitalRead(enSW) == 0) {
     multiplier = multCounter;
     printWords(0, 2, 110, 107, 0xfb2c, buffer);
   }
-
-// --- selectNumSamples() ---
-// Choose number of ADC samples for averaging.
 }
 
 void selectNumSamples() {
@@ -1618,17 +1331,11 @@ void selectNumSamples() {
     sampleCounter = encoderPos;
     sprintf(buffer, " %3d", sampleCounter);
     printWords(0, 2, 110, 27, ST77XX_WHITE, buffer);
-
-// --- while() ---
-// Purpose: High-level behavior of `while`.
   }
   while (digitalRead(enSW) == 0) {
     numSamples = sampleCounter;
     printWords(0, 2, 110, 27, 0xfb2c, buffer);
   }
-
-// --- selectRate() ---
-// Tweak control rate or ramp rate parameter.
 }
 
 void selectRate() {
@@ -1642,17 +1349,11 @@ void selectRate() {
     }
     sprintf(buffer, " %3d", steps);
     printWords(0, 2, 110, 87, ST77XX_WHITE, buffer); 
-
-// --- while() ---
-// Purpose: High-level behavior of `while`.
   }
   while (digitalRead(enSW) == 0) {
     pulseRate = steps;
     printWords(0, 2, 110, 87, 0xfb2c, buffer);
   }
-
-// --- selectTimeDelay() ---
-// Set inter-step delay for protocols or UI interactions.
 }
 
 void selectTimeDelay() {
@@ -1666,17 +1367,11 @@ void selectTimeDelay() {
     delayCounter = (encoderPos * 5);
     sprintf(buffer, "% 4d", delayCounter);
     printWords(0, 2, 110, 47, ST77XX_WHITE, buffer);
-
-// --- while() ---
-// Purpose: High-level behavior of `while`.
   }
   while (digitalRead(enSW) == 0) {
     timeDelay = delayCounter;
     printWords(0, 2, 110, 47, 0xfb2c, buffer);
   }
-
-// --- SimScreen() ---
-// Purpose: High-level behavior of `SimScreen`.
 }
 
 void SimScreen(uint16_t color, const char *state) {
@@ -1691,9 +1386,6 @@ void SimScreen(uint16_t color, const char *state) {
   tft.drawFastHLine(0, 41, 160, ST77XX_WHITE);
   tft.drawFastHLine(0, 61, 160, ST77XX_WHITE);
   tft.drawFastHLine(0, 81, 160, ST77XX_WHITE);
-
-// --- testType() ---
-// Purpose: High-level behavior of `testType`.
 }
 
 void testType() {
@@ -1703,16 +1395,10 @@ void testType() {
     encoderLimit(0,1);
     listBox(69, 105, 90, 23, ST77XX_BLACK);
     printWords(9, 1, 70, 118, ST77XX_WHITE, testMenu[encoderPos]);
-
-// --- while() ---
-// Purpose: High-level behavior of `while`.
   }
   while (digitalRead(enSW) == 0) {
     expType = encoderPos;
     printWords(9, 1, 70, 118, 0xfb2c, testMenu[encoderPos]);
-
-// --- if() ---
-// Purpose: High-level behavior of `if`.
   }
   if (expType == 0) {
     fillLines = false;
@@ -1724,16 +1410,10 @@ void testType() {
     UseStartTime = true;
     encoderPos = 0;
     delay(100);
-
-// --- if() ---
-// Purpose: High-level behavior of `if`.
   }
   if (expType == 1) {
       NVIC_SystemReset();
   }
-
-// --- triangle() ---
-// Purpose: High-level behavior of `triangle`.
 }
 
 void triangle() {
@@ -1745,9 +1425,6 @@ void triangle() {
       if (sel_pressure >= maxmmHg) {
         beatDir = false;
       }
-
-// --- if() ---
-// Purpose: High-level behavior of `if`.
     }
     else if (beatDir == false) {
       sel_pressure--;
@@ -1763,12 +1440,8 @@ void triangle() {
 
 /******************************** Core Functions ********************************/
 
-// --- isRunningMoto() ---
 // RUN path UI/logic: handle manual input (when allowed), update setpoint, and execute control each cycle.
-
 void isRunningMoto() {
-  recvWithStartEndMarkers();
-  showNewData();
   if (!_vm_pcActive) { sel_pressure = encoderPos; }
 currentMillis = millis() - startMillis;
   pressureControl(acceleration);
@@ -1788,23 +1461,15 @@ currentMillis = millis() - startMillis;
     coloring = ((encoderPos - avgPressure) * 0.5);
     drawColorBar(coloring, 0, 84, 8, 5);
     previousMillis = currentMillis;
-
-// --- while() ---
-// Purpose: High-level behavior of `while`.
   }
   while (digitalRead(enSW) == 0) {
     runStateMoto = 0;
     encoderPos = 0;
     tft.fillScreen(ST77XX_BLACK);
   }
-
-// --- isRunningSim() ---
-// Purpose: High-level behavior of `isRunningSim`.
 }
 
 void isRunningSim() {
-  recvWithStartEndMarkers();
-  showNewData();
   currentMillis = millis() - startMillis;
   triangle();
   pressureRamp(acceleration);
@@ -1825,9 +1490,6 @@ void isRunningSim() {
     sprintf(RunningOutputSim, "<P1:%.2f;P2:%.2f>", avgPressure, avgPressure); //change 2nd one to 'avgTension' once VasoTracker can handle it
     Serial.println(RunningOutputSim);
     previousMillis = currentMillis;
-
-// --- while() ---
-// Purpose: High-level behavior of `while`.
   }
   while (digitalRead(enSW) == 0) {
     runStateSim = 0;
@@ -1836,9 +1498,6 @@ void isRunningSim() {
     printWords(0, 2, 80, 44, ST77XX_CYAN, range);
     SimScreen(ST77XX_RED, "STOPPED");
   }
-
-// --- isStoppingMoto() ---
-// Purpose: High-level behavior of `isStoppingMoto`.
 }
 
 void isStoppingMoto() {
@@ -1848,20 +1507,17 @@ void isStoppingMoto() {
   printWords(7, 1, 88, 122, ST77XX_YELLOW, stopMenu[encoderPos]);
   sprintf(selected, "%d ", sel_pressure);
   MotoScreen(ST77XX_RED, "STOPPED");
-      if (currentMillis - previousMillis >= timeDelay) {
-        averagingPressure(numSamples);
-        averagingTension(numSamples);
-        sprintf(pressure, "%.1f  ", avgPressure);
-        printWords(0, 2, 16, 24, ST77XX_CYAN, pressure);
-        sprintf(tension, "%.1f  ", avgTension);
-        printWords(0, 2, 106, 24, ST77XX_CYAN, tension);
-        // sprintf(StoppingOutputMoto, "<P1:%.2f;P2:%.2f>", avgPressure, avgPressure); //change 2nd one to 'avgTension' once VasoTracker can handle it
-        // Serial.println(StoppingOutputMoto);
-        previousMillis = currentMillis;
-
-// --- while() ---
-// Purpose: High-level behavior of `while`.
-      }
+  if (currentMillis - previousMillis >= timeDelay) {
+    averagingPressure(numSamples);
+    averagingTension(numSamples);
+    sprintf(pressure, "%.1f  ", avgPressure);
+    printWords(0, 2, 16, 24, ST77XX_CYAN, pressure);
+    sprintf(tension, "%.1f  ", avgTension);
+    printWords(0, 2, 106, 24, ST77XX_CYAN, tension);
+    // sprintf(StoppingOutputMoto, "<P1:%.2f;P2:%.2f>", avgPressure, avgPressure); //change 2nd one to 'avgTension' once VasoTracker can handle it
+    // Serial.println(StoppingOutputMoto);
+    previousMillis = currentMillis;
+  }
   while (digitalRead(enSW) == 0) {
     int switchChoice = encoderPos;
     if (switchChoice == 0) {
@@ -1871,22 +1527,15 @@ void isStoppingMoto() {
       encoderPos = sel_pressure;
       goUp = maxDelay;
       goDown = maxDelay;
-
-// --- if() ---
-// Purpose: High-level behavior of `if`.
     }
     if (switchChoice == 1) {
       NVIC_SystemReset();
-    } 
+    }
   }
-
-// --- isPausedSim() ---
-// SIM pause path: allow safe parameter tweaks while simulation is paused; manual writes gated if PC active.
 }
 
+// SIM pause path: allow safe parameter tweaks while simulation is paused; manual writes gated if PC active.
 void isPausedSim() {
-  recvWithStartEndMarkers();
-  showNewData();
   if (!_vm_pcActive) { sel_pressure = encoderPos; }
 currentMillis = millis() - startMillis;
   pressureControl(acceleration);
@@ -1905,9 +1554,6 @@ currentMillis = millis() - startMillis;
     sprintf(RunningOutputSim, "<P1:%.2f;P2:%.2f>", avgPressure, avgPressure); //change 2nd one to 'avgTension' once VasoTracker can handle it
     Serial.println(RunningOutputSim);
     previousMillis = currentMillis;
-
-// --- while() ---
-// Purpose: High-level behavior of `while`.
   }
   while (digitalRead(enSW) == 0) {
       runStateSim = 1;
@@ -1918,9 +1564,6 @@ currentMillis = millis() - startMillis;
       prevmillis = currentMillis;
       // UseStartTime = true;
   }
-
-// --- isStoppingSim() ---
-// Purpose: High-level behavior of `isStoppingSim`.
 }
 
 void isStoppingSim() {
@@ -1943,9 +1586,6 @@ void isStoppingSim() {
     sprintf(RunningOutputSim, "<P1:%.2f;P2:%.2f>", avgPressure, avgPressure); //change 2nd one to 'avgTension' once VasoTracker can handle it
     Serial.println(RunningOutputSim);
     previousMillis = currentMillis;
-
-// --- while() ---
-// Purpose: High-level behavior of `while`.
   }
   while (digitalRead(enSW) == 0) {
     int switchChoice = encoderPos;
@@ -1956,9 +1596,6 @@ void isStoppingSim() {
       SimScreen(ST77XX_ORANGE, "PAUSED");
       encoderPos = sel_pressure;
       prevmillis = currentMillis;
-
-// --- if() ---
-// Purpose: High-level behavior of `if`.
     }
     if (switchChoice == 1) {
       tft.fillScreen(ST7735_BLACK);
@@ -1967,9 +1604,6 @@ void isStoppingSim() {
       selectAccelAdjust();
       tft.fillScreen(ST7735_BLACK);
       encoderPos = 0;
-
-// --- if() ---
-// Purpose: High-level behavior of `if`.
     }
     if (switchChoice == 2) {
       writingToFlash();
@@ -1979,17 +1613,12 @@ void isStoppingSim() {
       NVIC_SystemReset();
     }
   }
-
-  // === VasoTracker: telemetry for app/CSV ===
-  {
-    unsigned long _now = millis();
-    if (_now >= _vm_nextDataMs) {
-      _vm_nextDataMs += (1000UL / VM_TELEMETRY_HZ);
-      // Telemetry line @ ~VM_TELEMETRY_HZ
-Serial.print(F("DATA T=")); Serial.print(_now);
-      Serial.print(F(" P="));     Serial.print(avgPressure, 2);   // your measured pressure variable
-      Serial.print(F(" P_SET=")); Serial.println(sel_pressure);   // your applied target
-    }
+  unsigned long _now = millis();
+  if (_now >= _vm_nextDataMs) {
+    _vm_nextDataMs += (1000UL / VM_TELEMETRY_HZ);
+    // Telemetry line @ ~VM_TELEMETRY_HZ
+    Serial.print(F("DATA T=")); Serial.print(_now);
+    Serial.print(F(" P="));     Serial.print(avgPressure, 2);   // your measured pressure variable
+    Serial.print(F(" P_SET=")); Serial.println(sel_pressure);   // your applied target
   }
-  // === End telemetry ===
 }
