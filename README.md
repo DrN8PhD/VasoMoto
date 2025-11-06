@@ -13,6 +13,9 @@ This system is also capable of simulating pulsatile changes in pressure at rates
 
 ***Use at your own peril with other microcontrollers. I tried to clearly label what pins should be changed, but it's possible to incinerate your microcontroller if pin assignments are incorrect.***
 --
+## v4.1.1
+* Added slow pressure ramp. This is different than the step protocol in VasoTracker. This slowly increases the set pressure at a given rate in mmHg/minute.
+  
 ## v4.1.0
 * Multiple bug fixes.
 * Additional code to allow VasoTracker to control pressure and do timed pressure steps without the need for NI interface.
