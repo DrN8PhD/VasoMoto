@@ -1,5 +1,5 @@
 /*
- * VasoMoto v4.0.1c — Brief Commented Edition
+ * VasoMoto v4.1.0 — Brief Commented Edition
  * Purpose: Add concise, high-level explanations above major functions and logic blocks,
  *          without changing any behavior. For lab collaborators and future maintainers.
  *
@@ -11,7 +11,7 @@
 /* This version includes external input to change pressure. All tension recording functions are disabled. Can be re-enabled for a second pressure
    transducer, but name should be changed to prevent confusion. */
 
-/* NOTE: This version (4.0.1b) is also specifically adapted to do slow pressure increases over time. The fast pulse functionality is removed
+/* NOTE: This version (4.1.0) is also specifically adapted to do slow pressure increases over time. The fast pulse functionality is removed
    in favor of this. For rapid pulse pressure shifting, see version 4.0.1.*/
 
 #include <Wire.h>
@@ -57,9 +57,6 @@
   int choice;
   bool beatDir = true;
 
-// --- fpinDC() ---
-// Purpose: High-level behavior of `fpinDC`.
-
   void fpinDC() {
     noInterrupts();
     reading = *port & maskAB;
@@ -70,9 +67,6 @@
       aFlag = 0;  //reset flags for the next turn
     } else if (reading == maskB) bFlag = 1;
     interrupts();  //signal that we're expecting pinCS to signal the transition to detent from free rotation
-
-// --- fpinCS() ---
-// Purpose: High-level behavior of `fpinCS`.
   }
   void fpinCS() {
     noInterrupts();
@@ -195,6 +189,8 @@
   int ticker;
   float coloring;
   int sel_pressure = 0;
+  unsigned long prevTiming;
+  int direction = 1;
   bool UseStartTime = true;
   bool moto = false;
   char number[8];
@@ -440,7 +436,7 @@ void bootup() {
       buffidx++;
     }
   }
-  printWords(0, 1, 80, 120, ST77XX_RED, "v4.1.0");
+  printWords(0, 1, 80, 120, ST77XX_RED, "v4.1.1");
     if (startup.valid == false) {
     delay(1000);
     tft.fillRect(0, 100, 160, 28, ST77XX_BLACK);
@@ -458,9 +454,9 @@ void bootup() {
 //setting a reasonable starting pressure and pulse for simukator.
 void bootSim() {
   if (sim.valid == false) {
-    minmmHg = 60;
+    minmmHg = 20;
     maxmmHg = 120;
-    pulseRate = 200;
+    pulseRate = 10;
   }
     simSetup();
 }
@@ -948,26 +944,18 @@ void pressureControl(int accel) {
   }
 }
 
-// Time-based stepping/ramping of 'sel_pressure' for experimental protocols.
-void pressureRamp(int accel) {
-  float motors;
-  int minDelay = 500;
-  currentMicros = millis();                     //I know the variable is named weird. I didnt want to go back and change it again for no reason.
-  motors = (sel_pressure - avgPressure);
-  if (motors <= -1) {
-    stepper.move(1, 1800, 1);
+void pressureRamp() {
+  unsigned long currentTiming = millis();                     //I know the variable is named weird. I didnt want to go back and change it again for no reason.
+  int pressureDelay = (60000 / pulseRate);
+  if (currentTiming - prevTiming >= pressureDelay) {
+    sel_pressure += direction;
+    prevTiming = currentTiming;
   }
-  else if (motors > -1 && motors <= -0.3) {
-    stepper.move(1, 3000, 1);
-  }
-   else if (motors >= 0.3 && motors < 1) {
-    stepper.move(1, 3000, -1);
-   }
-  else if (motors >= 1) {
-    stepper.move(1, 1800, -1);
-   } 
-    else {
-      stepper.move(0, 0, -1);
+  if (sel_pressure >= maxmmHg) {
+    direction = -1;       // Start counting down
+  } 
+  else if (sel_pressure <= minmmHg) {
+    direction = 1;        // Start counting up
   }
 }
 
@@ -1470,9 +1458,9 @@ currentMillis = millis() - startMillis;
 }
 
 void isRunningSim() {
+  pressureRamp();
+  pressureControl(acceleration);
   currentMillis = millis() - startMillis;
-  triangle();
-  pressureRamp(acceleration);
   if (currentMillis - previousMillis >= timeDelay) {
     currentTime = (currentMillis / 1000.00);
     averagingPressure(numSamples);
@@ -1485,8 +1473,8 @@ void isRunningSim() {
     dtostrf(actualRate, 4, 1, rate);
     printWords(0, 2, 80, 44, ST77XX_CYAN, range);
     printWords(0, 2, 90, 64, ST77XX_CYAN, rate);
-    // sprintf(time, "%.2f", currentTime);
-    // printWords(0, 2, 70, 84, ST77XX_WHITE, time);
+    sprintf(time, "%.2f", currentTime);
+    printWords(0, 2, 70, 84, ST77XX_WHITE, time);
     sprintf(RunningOutputSim, "<P1:%.2f;P2:%.2f>", avgPressure, avgPressure); //change 2nd one to 'avgTension' once VasoTracker can handle it
     Serial.println(RunningOutputSim);
     previousMillis = currentMillis;
