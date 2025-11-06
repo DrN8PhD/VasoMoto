@@ -348,7 +348,7 @@ void recvWithStartEndMarkers() {
 
 void showNewData() {
   if (newData == true) {
-    encoderPos = atoi(receivedChars);
+    sel_pressure = atoi(receivedChars);
     newData = false;
   }
 }
@@ -487,10 +487,10 @@ void calibration() {
   if (choice == 2) {
     tft.fillScreen(ST77XX_BLACK);
     calibrationOrder = 0;
-    pLowADC = 261; //261 or 711 for andres
+    pLowADC = 472; //261 or 711 for andres
     pLowSel = 0;
-    pHiADC =  7930; //7930 or 7877 for andres
-    pHiSel = 82; //82 or 78 for andres
+    pHiADC =  10903; //7930 or 7877 for andres
+    pHiSel = 106; //82 or 78 for andres
     calWords();
     calNums();
     offsetPressure();
