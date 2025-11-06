@@ -1,4 +1,4 @@
-# VasoMoto 4.0.1
+# VasoMoto
 ## Monitor and control cannulated vessel pressure in one easy-to-build unit
 
 This arduino-based code is used to program the VasoMoto controller.
@@ -12,4 +12,8 @@ This system is also capable of simulating pulsatile changes in pressure at rates
 * This system requires a custom PCB. This is available at a nominal cost through the [Cubi<sup>3</sup>C Core Facility](https://phmtox.msu.edu/facilities/cubi3c) at Michigan State University. Costs will vary depending on the level of assembly you want, but I assure you -- it's far less than any other system on the market.
 
 ***Use at your own peril with other microcontrollers. I tried to clearly label what pins should be changed, but it's possible to incinerate your microcontroller if pin assignments are incorrect.***
-
+--
+## v4.1.0
+* Multiple bug fixes.
+* Additional code to allow VasoTracker to control pressure and do timed pressure steps without the need for NI interface.
+* Additoonal commenting throughout for clarity in the Arduino code.
