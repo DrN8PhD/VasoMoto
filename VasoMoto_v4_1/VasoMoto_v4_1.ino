@@ -87,7 +87,7 @@
   int pulseCounter = 0;
   float tempRate = 0.0;
   float actualRate = 0.0;
-  int maxDelay = 30000;   //  Used in pressureControl to easily alter how slow the stepper starts, so I dont have to change in 12 places.
+  int maxDelay = 10000;   //  Used in pressureControl to easily alter how slow the stepper starts, so I dont have to change in 12 places.
   int numSteps = 0;
   int stepCounter = 0;
   int stepsPerSec = 200;  //This is WHOLE steps per sec; the fractionation is accounted for later.
@@ -163,9 +163,9 @@
     int maxmmHg;
     int pulseRate;
   
-  FlashStorage(calibrate, cal_matrix);
+  FlashStorage (calibrate, cal_matrix);
   FlashStorage (initialize, init_matrix);
-  FlashStorage(simulation, sim_matrix);
+  FlashStorage (simulation, sim_matrix);
 
 /*Serial receive vairables*/
   const byte numChars = 16;
@@ -286,6 +286,7 @@ void setup() {
   bootup();
   chooseMode();
   calibration();
+  calibrate.write(calib);
   ads.linearCal(pLowADC, pHiADC, pLowSel, pHiSel);
   // ads.linearCal(tLowADC, tHiADC, tLowSel, tHiSel); //this is solely for using second transducer. 
   if(moto == true) {
@@ -560,7 +561,6 @@ void calibration() {
     }
   }
   writingToFlash();
-  calibrate.write(calib);
 }
 
 // Calibration numeric prompt helper: capture/display numbers.
@@ -904,7 +904,7 @@ void oscillate(float z) {
 // Closed-loop control toward 'sel_pressure' using 'avgPressure'; applies clamps/rate limits and drives the actuator.
 void pressureControl(int accel) {
   float motors;
-  int minDelay = 1000;
+  int minDelay = 500;
   currentMicros = millis();                     //I know the variable is named weird. I didnt want to go back and change it again for no reason.
   motors = (sel_pressure - avgPressure);
   if (motors <= -0.3) {
