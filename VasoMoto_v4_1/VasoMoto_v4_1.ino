@@ -50,6 +50,7 @@
   uint32_t maskAB;
   volatile uint32_t *port;
   bool box;
+  int runStateRamp = 0;
   int runStateSim = 0;
   int runStateMoto = 0;
   bool fillLines = false;
@@ -117,15 +118,29 @@
 
 /*Flash storage definitions and matrices*/
    struct cal_matrix {       //place to store all the values needed for linear calibration of sensors.
-    bool valid;
+    bool valid_cal;
+    bool valid_init;
+    bool valid_ramp;
+    bool valid_sim;
     float _pLowSel;
     float _pHiSel;
     float _tLowSel;
     float _tHiSel;
+    float _multiplier;      //Use this to set the velocity multiplier to get the right shape of the pressure curve.             
     int _pLowADC;
     int _pHiADC;
     int _tLowADC;
     int _tHiADC;
+    int _timeDelay;         //the time delay for wheatstone bridge output.
+    int _filterWeight;      //the weighting of the averaging filter.
+    int _acceleration;      //Use this to alter how fast the pump accelerates and to what speed.
+    int _numSamples;        //the number of samples averaged. Was set to 5 in v200 for some reason?
+    int _lowmmHg;
+    int _highmmHg;
+    int _pressRate;
+    int _minmmHg;
+    int _maxmmHg;
+    int _pulseRate;
   } calib;
 
     float pLowSel;
@@ -136,36 +151,19 @@
     int pHiADC;
     int tLowADC;
     int tHiADC;
- 
-   struct init_matrix {    //place to store all the values from the "advanced" settings menu.
-    bool valid;
-    int _timeDelay;         //the time delay for wheatstone bridge output.
-    int _filterWeight;      //the weighting of the averaging filter.
-    float _multiplier;      //Use this to set the velocity multiplier to get the right shape of the pressure curve.             
-    int _acceleration;      //Use this to alter how fast the pump accelerates and to what speed.
-    int _numSamples;        //the number of samples averaged. Was set to 5 in v200 for some reason?
-  } startup;
-
-  int timeDelay;       
-  int filterWeight;    
-  float multiplier;    
-  int acceleration;    
-  int numSamples;      
- 
-   struct sim_matrix {     //place to store values of the pulse simulation.
-    bool valid;
-    int _minmmHg;
-    int _maxmmHg;
-    int _pulseRate;
-  } sim;
-
+    float multiplier;          
+    int timeDelay;       
+    int filterWeight;    
+    int acceleration;    
+    int numSamples;
+    int lowmmHg;
+    int highmmHg;
+    int pressRate;
     int minmmHg;
     int maxmmHg;
     int pulseRate;
   
   FlashStorage (calibrate, cal_matrix);
-  FlashStorage (initialize, init_matrix);
-  FlashStorage (simulation, sim_matrix);
 
 /*Serial receive vairables*/
   const byte numChars = 16;
@@ -192,7 +190,8 @@
   unsigned long prevTiming;
   int direction = 1;
   bool UseStartTime = true;
-  bool moto = false;
+  int mode;
+  // bool moto = false;
   char number[8];
   char selected[4];
   char pressure[6];
@@ -203,6 +202,8 @@
   char RunningOutputMoto[28];
   char StoppingOutputMoto[28];
   char RunningOutputSim[32];
+  char RunningOutputRamp[32];
+  char StoppingOutputRamp[32];
   char StoppingOutputSim[32];
   char pressureBufferLCA[32];  //Pressure calib.pLowADC string
   char pressureBufferHCA[32];  //Pressurecalib.pHiADC string
@@ -215,7 +216,7 @@
   char bufferLP[32];   //low pressure string
   char bufferHP[32];   //high pressure string
   char bufferPR[32];   //pulse rate string
-  char debugging[50]; //for ease of reading serial output stuff
+  char debugging[72]; //for ease of reading serial output stuff
 
 /*VasoTracker PC control variables*/
 // Host -> Device:  "SET P=<mmHg>". Device -> Host:  "ACK SET P=<mmHg> T=<ms>"
@@ -229,8 +230,8 @@ static String _vm_line;                          // tiny line buffer
 
 //acknowledge a host SET command with the current millis() timestamp.
 static void _vm_send_ack(int p_int) { 
-  Serial.print(F("ACK SET P=")); Serial.print(p_int);       
-  Serial.print(F(" T="));        Serial.println(millis());
+  // Serial.print(F("ACK SET P=")); Serial.print(p_int);       
+  // Serial.print(F(" T="));        Serial.println(millis());
 }
 
 // Expect exactly: "SET P=80.0" (whitespace-insensitive on either side)
@@ -246,7 +247,7 @@ static void _vm_handle_line(const String& s) {
         sel_pressure = p_int;            // Update the existing target variable your sketch already uses:
         encoderPos = sel_pressure;       // keep the front-panel encoder in sync with PC commands
         _vm_pcActive = true;
-        moto = true;                     // Ensure device is in Motor RUN state when commanded from PC
+        mode = 1;                     // Ensure device is in Motor RUN state when commanded from PC
         runStateMoto = 1;
         startMillis = millis();          // PC is actively driving now
         _vm_lastSetMs = millis();
@@ -277,28 +278,31 @@ void setup() {
   tft.setRotation(1);
   tft.setTextWrap(false);
   
-  startup = initialize.read();
   calib = calibrate.read();
-  sim = simulation.read();
-
+  
   loadingFromFlash();
 
   bootup();
   chooseMode();
   calibration();
-  calibrate.write(calib);
   ads.linearCal(pLowADC, pHiADC, pLowSel, pHiSel);
   // ads.linearCal(tLowADC, tHiADC, tLowSel, tHiSel); //this is solely for using second transducer. 
-  if(moto == true) {
+  if(mode == 1) {
     stepper.setStepFrac(8);
-    clickBegin();
     delay(500);
   }
-  if(moto == false) {
+  if(mode == 2) {
+    stepper.setStepFrac(8);
+    stepper.setStepFracSpeed(8, stepsPerSec);
+    bootRamp();
+    delay(500);
+  }
+  if(mode == 3) {
     stepper.setStepFrac(8);
     stepper.setStepFracSpeed(8, stepsPerSec);
     bootSim();
     testType();
+    delay(500);
   }
   while (fillLines == true) {
     lineFilling();
@@ -310,9 +314,11 @@ void setup() {
     printNumber(2, 110, 87, 0xfb2c, ST77XX_BLACK, pulseRate);
     testType();
   }
+  clickBegin();
   stepper.setStepFracSpeed(8, stepsPerSec);
   writingToFlash();
-  initialize.write(startup);
+  calibrate.write(calib);
+  delay(500);
 }
 
 void loop() {
@@ -338,7 +344,16 @@ void loop() {
       _vm_pcActive = false;
     }
   }
-  if(moto == false) {
+  if(mode == 2) {
+    if (runStateRamp == 0) {
+      isStoppingRamp();
+    } else if (runStateRamp == 1) {
+      isRunningRamp();                 //runs as pulse simulator
+    } else if (runStateRamp == 2) {
+      isPausedRamp();                  //pauses pulse simulator
+    }
+  }
+  else if(mode == 3) {
     if (runStateSim == 0) {
       isStoppingSim();
     } else if (runStateSim == 1) {
@@ -347,7 +362,7 @@ void loop() {
       isPausedSim();                  //pauses pulse simulator
     }
   }
-  else if(moto == true) {
+  else if(mode == 1) {
     if (runStateMoto == 0) {
       isStoppingMoto();               //runs as pressure controller
     } else if (runStateMoto == 1) {
@@ -357,13 +372,13 @@ void loop() {
 }
 
 //************************************************************************************************************************//
-// Load configuration/calibration from non-volatile memory at startup.
+// Load configuration/calibration from non-volatile memory at calib.
 void loadingFromFlash() {
-  timeDelay = startup._timeDelay;
-  filterWeight = startup._filterWeight;
-  multiplier = startup._multiplier;
-  acceleration = startup._acceleration;
-  numSamples = startup._numSamples;
+  timeDelay = calib._timeDelay;
+  filterWeight = calib._filterWeight;
+  multiplier = calib._multiplier;
+  acceleration = calib._acceleration;
+  numSamples = calib._numSamples;
   pLowSel = calib._pLowSel;
   pHiSel = calib._pHiSel;
   tLowSel = calib._tLowSel;
@@ -372,18 +387,22 @@ void loadingFromFlash() {
   pHiADC = calib._pHiADC;
   tLowADC = calib._tLowADC;
   tHiADC = calib._tHiADC;
-  minmmHg = sim._minmmHg;
-  maxmmHg = sim._maxmmHg;
-  pulseRate = sim._pulseRate;
+  lowmmHg = calib._lowmmHg;
+  highmmHg = calib._highmmHg;
+  pressRate = calib._pressRate;
+  minmmHg = calib._minmmHg;
+  maxmmHg = calib._maxmmHg;
+  pulseRate = calib._pulseRate;
 }
+
 
 // Write configuration/calibration to non-volatile memory.
 void writingToFlash() {
-  startup._timeDelay = timeDelay;
-  startup._filterWeight = filterWeight;
-  startup._multiplier = multiplier;
-  startup._acceleration = acceleration;
-  startup._numSamples = numSamples;
+  calib._timeDelay = timeDelay;
+  calib._filterWeight = filterWeight;
+  calib._multiplier = multiplier;
+  calib._acceleration = acceleration;
+  calib._numSamples = numSamples;
   calib._pLowSel = pLowSel;
   calib._pHiSel = pHiSel;
   calib._tLowSel = tLowSel;
@@ -392,9 +411,12 @@ void writingToFlash() {
   calib._pHiADC = pHiADC;
   calib._tLowADC = tLowADC;
   calib._tHiADC = tHiADC;
-  sim._minmmHg = minmmHg;
-  sim._maxmmHg = maxmmHg;
-  sim._pulseRate = pulseRate;
+  calib._lowmmHg = lowmmHg;
+  calib._highmmHg = highmmHg;
+  calib._pressRate = pressRate;
+  calib._minmmHg = minmmHg;
+  calib._maxmmHg = maxmmHg;
+  calib._pulseRate = pulseRate;
 }
 
 //Extra setup functions.
@@ -406,7 +428,7 @@ void advancedSettings() {
   selectFilterWeight();
   selectMultiplier();
   selectAcceleration();
-  startup.valid = true;
+  calib.valid_init = true;
   delay(100);
   bootup();
 }
@@ -437,8 +459,8 @@ void bootup() {
       buffidx++;
     }
   }
-  printWords(0, 1, 80, 120, ST77XX_RED, "v4.1.1");
-    if (startup.valid == false) {
+  printWords(0, 1, 80, 120, ST77XX_RED, "v4.1.3");
+    if (calib.valid_init == false) {
     delay(1000);
     tft.fillRect(0, 100, 160, 28, ST77XX_BLACK);
     printWords(8, 1, 1, 111, ST77XX_YELLOW, "First Complete Setup");
@@ -452,12 +474,21 @@ void bootup() {
   }
 }
 
-//setting a reasonable starting pressure and pulse for simukator.
+void bootRamp() {
+  if (calib.valid_ramp == false) {
+    lowmmHg = 20;
+    highmmHg = 120;
+    pressRate = 300;
+  }
+    rampSetup();
+}
+
+//setting a reasonable starting pressure and pulse for simulator.
 void bootSim() {
-  if (sim.valid == false) {
+  if (calib.valid_sim == false) {
     minmmHg = 20;
     maxmmHg = 120;
-    pulseRate = 10;
+    pulseRate = 100;
   }
     simSetup();
 }
@@ -466,45 +497,57 @@ void bootSim() {
 void calibration() {
   const char *calMenu[] = { "Load", "New", "N/A" };
   encoderPos = 0;
-  if(moto == true) {
+  if(mode == 1) {
     initScreenMoto();
   }
-  else if(moto == false) {
+  else if(mode == 2) {
+    initScreenRamp();
+  }
+  else if(mode == 3) {
     initScreenSim();
   }
   while (digitalRead(enSW)) {
     choice = encoderPos;
     encoderLimit(0, 2);
-    listBox(89, 27, 70, 14, ST77XX_BLACK);
+    listBox(89, 27, 72, 15, ST77XX_BLACK);
     printWords(9, 1, 90, 39, ST77XX_WHITE, calMenu[choice]);
   }
   while (digitalRead(enSW) == 0) {
     printWords(9, 1, 90, 39, 0xfb2c, calMenu[choice]);
   }
   if (choice == 0) {
-    if (calib.valid == true) {
+    sprintf(debugging, "%d;%d;%0.1f;%d;%d;%0.1f;%0.1f;%d;%d;%d;%d;%d;%d;%d;%d", timeDelay,filterWeight,multiplier,acceleration,numSamples,pLowSel,pHiSel, pLowADC, pHiADC,lowmmHg, highmmHg, pressRate, minmmHg, maxmmHg, pulseRate); Serial.println(debugging);
+    if (calib.valid_cal == true) {
       calibrationOrder = 0;
       calWords();
       calNums();
-      delay(200);
+      // delay(200);
       offsetPressure();
-      calibrationOrder = 1;
-      calWords();
-      calNums();
+      // calibrationOrder = 1;
+      // calWords();
+      // calNums();
       // offsetTension();     //add or remove, depending on # of sensors
       tft.fillScreen(ST77XX_BLACK);
-      if(moto == false) {
+      if (mode == 1) {
+        initScreenMoto();
+        printWords(9, 1, 102, 39, 0xfb2c, "Done");
+      }
+      else if (mode == 2) {
+        initScreenRamp();
+        printWords(9, 1, 102, 39, 0xfb2c, "Done");
+      }
+      else if (mode == 3) {
         initScreenSim();
         printWords(9, 1, 102, 39, 0xfb2c, "Done");
       }
     }
-    else {
+    if (calib.valid_cal == false) {
       calibration();
     }
   }
   if (choice == 1) {
     delay(250);
-    // calibrationOrder = 0;    //add or remove, depending on # of sensors
+    calibrationOrder = 0;    //add or remove, depending on # of sensors
     calWords();
     PressureADCLow();
     PressureSelLow();
@@ -520,22 +563,25 @@ void calibration() {
     // TensionSelHigh();        //add or remove, depending on # of sensors
     // offsetTension();         //add or remove, depending on # of sensors
     tft.fillScreen(ST77XX_BLACK);
-    calib.valid = true;
-    if (moto == true) {
+    calib.valid_cal = true;
+    if (mode == 1) {
       initScreenMoto();
-      calibrate.write(calib);
       printWords(9, 1, 102, 39, 0xfb2c, "Done");
-      delay(1000);
+      delay(200);
     }
-    else if(moto == false) {
-      initScreenSim();
-      calibrate.write(calib);
+    else if(mode == 2) {
+      initScreenRamp();
       printWords(9, 1, 102, 39, 0xfb2c, "Done");
-      delay(1000);
+      delay(200);
+    }
+    else if(mode == 3) {
+      initScreenSim();
+      printWords(9, 1, 102, 39, 0xfb2c, "Done");
+      delay(200);
     }
   }
   if (choice == 2) {
-    tft.fillScreen(ST77XX_BLACK);
+    // tft.fillScreen(ST77XX_BLACK);
     calibrationOrder = 0;
     pLowADC = 261; //261 or 711 for andres
     pLowSel = 0;
@@ -544,23 +590,35 @@ void calibration() {
     calWords();
     calNums();
     offsetPressure();
-    calibrationOrder = 1;
-    tLowADC = 0;
-    tLowSel = 0;
-    tHiADC = 0;
-    tHiSel = 0;
-    calWords();
-    calNums();
+    // calibrationOrder = 1;
+    // tLowADC = 0;
+    // tLowSel = 0;
+    // tHiADC = 0;
+    // tHiSel = 0;
+    // calWords();
+    // calNums();
     // offsetTension();   //add or remove, depending on # of sensors
     tft.fillScreen(ST77XX_BLACK);
-    if(moto == false) {
+    if (mode == 1) {
+      initScreenMoto();
+      calib.valid_cal = true;
+      printWords(9, 1, 102, 39, 0xfb2c, "Done");
+      delay(200);
+    }
+    else if(mode == 2) {
+      initScreenRamp();
+      calib.valid_cal = true;
+      printWords(9, 1, 102, 39, 0xfb2c, "Done");
+    }
+    else if(mode == 3) {
       initScreenSim();
-      calib.valid = true;
-      calibrate.write(calib);
+      calib.valid_cal = true;
       printWords(9, 1, 102, 39, 0xfb2c, "Done");
     }
   }
   writingToFlash();
+  // calibrate.write(calib);
+  delay(200);
 }
 
 // Calibration numeric prompt helper: capture/display numbers.
@@ -602,10 +660,10 @@ void calWords() {
 
 // Mode selection UI: lets user pick RUN/SIM/ADV paths.
 void chooseMode() {
-  const char *modeMenu[] = {"Turn to Select Mode","Pressure Control","Pressure Ramp","Advanced Settings" };
+  const char *modeMenu[] = {"Turn to Select Mode","Pressure Control","Pressure Ramp","Pulse Simulator","Advanced Settings" };
   encoderPos = 0;
   while (digitalRead(enSW)) {
-    encoderLimit(0, 3);
+    encoderLimit(0, 4);
     listBox(0, 100, 160, 28, ST77XX_BLACK);
     printWords(8, 1, 7, 111, ST77XX_WHITE, modeMenu[encoderPos]);  
   }
@@ -617,17 +675,23 @@ void chooseMode() {
     }
     if (switchChoice == 1) {
       printWords(8, 1, 7, 111, 0xfb2c, modeMenu[encoderPos]);  
-      moto = true;
+      mode = 1;
       delay(500);
       tft.fillScreen(ST77XX_BLACK);
     }
     if (switchChoice == 2) {
       printWords(8, 1, 7, 111, 0xfb2c, modeMenu[encoderPos]);  
-      moto = false;
+      mode = 2;
       delay(500);
       tft.fillScreen(ST77XX_BLACK);
     }
     if (switchChoice == 3) {
+      printWords(8, 1, 7, 111, 0xfb2c, modeMenu[encoderPos]);  
+      mode = 3;
+      delay(500);
+      tft.fillScreen(ST77XX_BLACK);
+    }
+    if (switchChoice == 4) {
       printWords(8, 1, 7, 111, 0xfb2c, modeMenu[encoderPos]);  
       delay(500);
       advancedSettings();
@@ -643,6 +707,9 @@ void clickBegin () {
   while (digitalRead(enSW) == 0) {
     encoderPos = 0;
     tft.fillScreen(ST7735_BLACK);
+    if (mode == 2 && runStateRamp == 0) {
+      RampScreen(ST77XX_RED, "STOPPED");
+    }
   }
 }
 
@@ -695,7 +762,7 @@ void initScreenAccel() {
   tft.drawFastHLine(2, 64, 158, 0xfe31);
   printWords(9, 1, 2, 79, 0x04d3, "Max mmHg:");
   tft.drawFastHLine(2, 84, 158, 0xfe31);
-  printWords(9, 1, 2, 99, 0x04d3, "mmHg/min:");
+  printWords(9, 1, 2, 99, 0x04d3, "Rate:");
   tft.drawFastHLine(2, 104, 158, 0xfe31);
   printWords(9, 1, 2, 119, 0x04d3, "Accel:");
 }
@@ -709,7 +776,7 @@ void initScreenAdjust() {
   tft.drawFastHLine(2, 64, 158, 0xfe31);
   printWords(9, 1, 2, 79, 0x04d3, "Max mmHg:");
   tft.drawFastHLine(2, 84, 158, 0xfe31);
-  printWords(9, 1, 2, 99, 0x04d3, "mmHg/min:");
+  printWords(9, 1, 2, 99, 0x04d3, "Rate:");
   tft.drawFastHLine(2, 104, 158, 0xfe31);
   printWords(9, 1, 2, 119, 0x04d3, "Multiplier:");
 }
@@ -721,7 +788,7 @@ void initScreenMoto() {
   tft.drawFastHLine(2, 44, 158, 0xfe31);
 }
 
-void initScreenSim() {
+void initScreenRamp() {
   printWords(9, 1, 30, 19, 0x64df, "Initialization");
   tft.drawFastHLine(2, 24, 158, 0xfe31);
   printWords(9, 1, 2, 39, 0x04d3, "Calibrate:");
@@ -731,6 +798,19 @@ void initScreenSim() {
   printWords(9, 1, 2, 79, 0x04d3, "Max mmHg:");
   tft.drawFastHLine(2, 84, 158, 0xfe31);
   printWords(9, 1, 2, 99, 0x04d3, "mmHg/min:");
+  tft.drawFastHLine(2, 104, 158, 0xfe31);
+}
+
+void initScreenSim() {
+  printWords(9, 1, 30, 19, 0x64df, "Initialization");
+  tft.drawFastHLine(2, 24, 158, 0xfe31);
+  printWords(9, 1, 2, 39, 0x04d3, "Calibrate:");
+  tft.drawFastHLine(2, 44, 158, 0xfe31);
+  printWords(9, 1, 2, 59, 0x04d3, "Min mmHg:");
+  tft.drawFastHLine(2, 64, 158, 0xfe31);
+  printWords(9, 1, 2, 79, 0x04d3, "Max mmHg:");
+  tft.drawFastHLine(2, 84, 158, 0xfe31);
+  printWords(9, 1, 2, 99, 0x04d3, "BPM:");
   tft.drawFastHLine(2, 104, 158, 0xfe31);
   printWords(9, 1, 2, 119, 0x04d3, "Type:");
 }
@@ -946,17 +1026,18 @@ void pressureControl(int accel) {
 
 void pressureRamp() {
   unsigned long currentTiming = millis();                     //I know the variable is named weird. I didnt want to go back and change it again for no reason.
-  int pressureDelay = (60000 / pulseRate);
+  int pressureDelay = (60000 / pressRate);
   if (currentTiming - prevTiming >= pressureDelay) {
     sel_pressure += direction;
     prevTiming = currentTiming;
   }
-  if (sel_pressure >= maxmmHg) {
+  if (sel_pressure >= highmmHg) {
     direction = -1;       // Start counting down
   } 
-  else if (sel_pressure <= minmmHg) {
+  else if (sel_pressure <= lowmmHg) {
     direction = 1;        // Start counting up
   }
+  // Serial.println(sel_pressure);
 }
 
 void PressureADCHigh() {
@@ -1040,6 +1121,33 @@ void PressureSelLow() {
   }
 }
 
+void rampAdjust() {
+  initScreenRamp();
+  delay(200);
+  selectLowPressure();
+  delay(200);
+  selectHighPressure();
+  delay(200);
+  selectRampRate();
+  delay(200);
+  calib.valid_ramp = true;
+  encoderPos = 0;
+  tft.fillScreen(ST7735_BLACK);
+  RampScreen(ST77XX_RED, "STOPPED");
+}
+
+void rampSetup() {
+  initScreenRamp();
+  delay(100);
+  selectLowPressure();
+  selectHighPressure();
+  selectRampRate();
+  delay(100);
+  calib.valid_ramp = true;
+  encoderPos = 0;
+}
+
+
 void simAdjust() {
   initScreenAccel();
   delay(200);
@@ -1047,9 +1155,9 @@ void simAdjust() {
   delay(200);
   selectMaxPressure();
   delay(200);
-  selectRate();
+  selectSimRate();
   delay(200);
-  sim.valid = true;
+  calib.valid_sim = true;
   encoderPos = 0;
 }
 
@@ -1058,9 +1166,9 @@ void simSetup() {
   delay(100);
   selectMinPressure();
   selectMaxPressure();
-  selectRate();
+  selectSimRate();
   delay(100);
-  sim.valid = true;
+  calib.valid_sim = true;
 }
 
 void TensionADCHigh() {
@@ -1276,6 +1384,37 @@ void selectMinPressure() {
   }
 }
 
+void selectHighPressure() {
+  encoderPos = 0;
+  char buffer[3];
+  int maxCounter;
+  while (digitalRead(enSW)) {
+    maxCounter = highmmHg + encoderPos;
+    sprintf(buffer, " %3d", maxCounter);
+    printWords(0, 2, 110, 67, ST77XX_WHITE, buffer);
+  }
+  while (digitalRead(enSW) == 0) {
+    highmmHg = maxCounter;
+    printWords(0, 2, 110, 67, 0xfb2c, buffer);
+  }
+}
+
+void selectLowPressure() {
+  encoderPos = 0;
+  char buffer[3];
+  int minCounter;
+  while (digitalRead(enSW)) {
+    minCounter = lowmmHg + encoderPos;
+    sprintf(buffer, " %3d", minCounter);
+    printWords(0, 2, 110, 47, ST77XX_WHITE, buffer);
+  }
+  while (digitalRead(enSW) == 0) {
+    lowmmHg = minCounter;
+    printWords(0, 2, 110, 47, 0xfb2c, buffer);
+  }
+}
+
+
 void selectMultiplier() {
   float tempMult = multiplier;
   encoderPos = 0;
@@ -1292,7 +1431,7 @@ void selectMultiplier() {
   }
 }
 
-void selectMultiplierAdjust() {
+void simMultiplierAdjust() {
   float tempMult = multiplier;
   encoderPos = 0;
   char buffer[3];
@@ -1326,7 +1465,25 @@ void selectNumSamples() {
   }
 }
 
-void selectRate() {
+void selectRampRate() {
+  encoderPos = pressRate;
+  char buffer[3];
+  int steps;
+  while (digitalRead(enSW)) {
+    steps = encoderPos;
+    if (steps >= 600) {
+      steps = 600;
+    }
+    sprintf(buffer, " %3d", steps);
+    printWords(0, 2, 110, 87, ST77XX_WHITE, buffer); 
+  }
+  while (digitalRead(enSW) == 0) {
+    pressRate = steps;
+    printWords(0, 2, 110, 87, 0xfb2c, buffer);
+  }
+}
+
+void selectSimRate() {
   encoderPos = pulseRate;
   char buffer[3];
   int steps;
@@ -1368,6 +1525,20 @@ void SimScreen(uint16_t color, const char *state) {
   printWords(7, 1, 2, 16, ST77XX_WHITE, "Actual");
   printWords(7, 1, 96, 16, ST77XX_WHITE, "Select");
   printWords(8, 1, 1, 54, 0xfb2c, "Range:");
+  printWords(8, 1, 1, 75, 0xfb2c, "Rate:");
+  printWords(8, 1, 1, 95, 0xfb2c, "Time:");
+  tft.drawFastHLine(0, 20, 160, ST77XX_WHITE);
+  tft.drawFastHLine(0, 41, 160, ST77XX_WHITE);
+  tft.drawFastHLine(0, 61, 160, ST77XX_WHITE);
+  tft.drawFastHLine(0, 81, 160, ST77XX_WHITE);
+}
+
+void RampScreen(uint16_t color, const char *state) {
+  tft.drawRect(2, 108, 158, 20, color);
+  printWords(7, 1, 6, 122, color, state);
+  printWords(7, 1, 2, 16, ST77XX_WHITE, "Actual");
+  printWords(7, 1, 96, 16, ST77XX_WHITE, "Select");
+  printWords(8, 1, 1, 54, 0xfb2c, "Range:");
   printWords(8, 1, 1, 75, 0xfb2c, "mmHg/min:");
   printWords(8, 1, 1, 95, 0xfb2c, "Time:");
   tft.drawFastHLine(0, 20, 160, ST77XX_WHITE);
@@ -1378,9 +1549,9 @@ void SimScreen(uint16_t color, const char *state) {
 
 void testType() {
   encoderPos = 0;
-  const char *testMenu[] = {"Triangle", "Reset?" };
+  const char *testMenu[] = {"line Fill","Triangle", "Reset?" };
   while (digitalRead(enSW)) {
-    encoderLimit(0,1);
+    encoderLimit(0,2);
     listBox(69, 105, 90, 23, ST77XX_BLACK);
     printWords(9, 1, 70, 118, ST77XX_WHITE, testMenu[encoderPos]);
   }
@@ -1389,6 +1560,11 @@ void testType() {
     printWords(9, 1, 70, 118, 0xfb2c, testMenu[encoderPos]);
   }
   if (expType == 0) {
+    fillLines = true;
+    Serial.println("Line Filling");
+    delay(100);
+  }
+  if (expType == 1) {
     fillLines = false;
     Serial.println("Triangular Pulse");
     tft.fillScreen(ST7735_BLACK);
@@ -1399,39 +1575,36 @@ void testType() {
     encoderPos = 0;
     delay(100);
   }
-  if (expType == 1) {
+  if (expType == 2) {
       NVIC_SystemReset();
   }
 }
 
 void triangle() {
   currmillis = millis();
-  beatTime = 60000 / pulseRate;
+  beatTime = 30000 / pulseRate;
   if (currmillis - prevmillis > beatTime) {
-    if (beatDir == true) {
-      sel_pressure++;
-      if (sel_pressure >= maxmmHg) {
-        beatDir = false;
-      }
-    }
-    else if (beatDir == false) {
-      sel_pressure--;
-      if (sel_pressure <= minmmHg) {
-        beatDir = true;
-      }
-    }
+    beatDir = !beatDir;
+    pulseCounter++;
     tempRate = currmillis - prevmillis;
     prevmillis = currmillis;
   }
-  actualRate = 60000 / tempRate;
+  if (beatDir == true) {
+    oscillate(minmmHg);
+  } else if (beatDir == false) {
+    oscillate(maxmmHg);
+  }
+  actualRate = 30000 / tempRate;
 }
 
 /******************************** Core Functions ********************************/
 
 // RUN path UI/logic: handle manual input (when allowed), update setpoint, and execute control each cycle.
 void isRunningMoto() {
-  if (!_vm_pcActive) { sel_pressure = encoderPos; }
-currentMillis = millis() - startMillis;
+  if (!_vm_pcActive) {
+    sel_pressure = encoderPos; 
+  }
+  currentMillis = millis() - startMillis;
   pressureControl(acceleration);
   if (currentMillis - previousMillis >= timeDelay) {
     currentTime = (currentMillis / 1000.00);
@@ -1443,7 +1616,7 @@ currentMillis = millis() - startMillis;
     sprintf(time, "%.2f", currentTime);
     // printWords(0, 2, 106, 24, ST77XX_CYAN, tension);
     sprintf(RunningOutputMoto, "<P1:%.2f;P2:%.2f>", avgPressure, avgPressure); //change 2nd one to 'avgTension' once VasoTracker can handle it
-    Serial.println(RunningOutputMoto);
+    // Serial.println(RunningOutputMoto);
     sprintf(selected, "%d ", sel_pressure);
     printWords(0, 3, 106, 48, ST77XX_BLUE, selected);  
     coloring = ((encoderPos - avgPressure) * 0.5);
@@ -1454,37 +1627,6 @@ currentMillis = millis() - startMillis;
     runStateMoto = 0;
     encoderPos = 0;
     tft.fillScreen(ST77XX_BLACK);
-  }
-}
-
-void isRunningSim() {
-  pressureRamp();
-  pressureControl(acceleration);
-  currentMillis = millis() - startMillis;
-  if (currentMillis - previousMillis >= timeDelay) {
-    currentTime = (currentMillis / 1000.00);
-    averagingPressure(numSamples);
-    averagingTension(numSamples);
-    sprintf(pressure, "%.1f ", avgPressure);
-    printWords(0, 2, 16, 24, ST77XX_CYAN, pressure);
-    sprintf(selected, "%d ", sel_pressure);
-    printWords(0, 2, 106, 24, ST77XX_BLUE, selected);
-    sprintf(range, "%d/%d", minmmHg, maxmmHg);
-    dtostrf(actualRate, 4, 1, rate);
-    printWords(0, 2, 80, 44, ST77XX_CYAN, range);
-    printWords(0, 2, 90, 64, ST77XX_CYAN, rate);
-    sprintf(time, "%.2f", currentTime);
-    printWords(0, 2, 70, 84, ST77XX_WHITE, time);
-    sprintf(RunningOutputSim, "<P1:%.2f;P2:%.2f>", avgPressure, avgPressure); //change 2nd one to 'avgTension' once VasoTracker can handle it
-    Serial.println(RunningOutputSim);
-    previousMillis = currentMillis;
-  }
-  while (digitalRead(enSW) == 0) {
-    runStateSim = 0;
-    encoderPos = 0;
-    tft.fillScreen(ST77XX_BLACK);
-    printWords(0, 2, 80, 44, ST77XX_CYAN, range);
-    SimScreen(ST77XX_RED, "STOPPED");
   }
 }
 
@@ -1520,12 +1662,139 @@ void isStoppingMoto() {
       NVIC_SystemReset();
     }
   }
+  unsigned long _now = millis();
+  if (_now >= _vm_nextDataMs) {
+    _vm_nextDataMs += (1000UL / VM_TELEMETRY_HZ);
+    // Telemetry line @ ~VM_TELEMETRY_HZ
+    // Serial.print(F("DATA T=")); Serial.print(_now);
+    // Serial.print(F(" P="));     Serial.print(avgPressure, 2);   // your measured pressure variable
+    // Serial.print(F(" P_SET=")); Serial.println(sel_pressure);   // your applied target
+  }
+}
+
+// SIM pause path: allow safe parameter tweaks while simulation is paused; manual writes gated if PC active.
+void isPausedRamp() {
+  if (!_vm_pcActive) { 
+    sel_pressure = encoderPos; 
+  }
+  currentMillis = millis() - startMillis;
+  pressureControl(acceleration);
+  if (currentMillis - previousMillis >= timeDelay) {
+    // currentTime = (currentMillis / 1000.00);
+    averagingPressure(numSamples);
+    // averagingTension(numSamples);
+    sprintf(pressure, "%.1f ", avgPressure);
+    printWords(0, 2, 16, 24, ST77XX_CYAN, pressure);
+    sprintf(selected, "%d ", sel_pressure);
+    printWords(0, 2, 106, 24, ST77XX_BLUE, selected);
+    sprintf(range, "%d/%d", lowmmHg, highmmHg);
+    dtostrf(pressRate, 4, 1, rate);
+    printWords(0, 2, 80, 44, ST77XX_CYAN, range);
+    printWords(0, 2, 90, 64, ST77XX_CYAN, rate);
+    sprintf(RunningOutputRamp, "<P1:%.2f;P2:%.2f>", avgPressure, avgPressure); //change 2nd one to 'avgTension' once VasoTracker can handle it
+    // Serial.println(RunningOutputRamp);
+    previousMillis = currentMillis;
+  }
+  while (digitalRead(enSW) == 0) {
+      runStateRamp = 1;
+      tft.fillScreen(ST7735_BLACK);
+      printWords(0, 2, 80, 44, ST77XX_CYAN, range);
+      RampScreen(ST77XX_GREEN, "RUNNING");
+      prevmillis = currentMillis;
+      UseStartTime = true;
+  }
+}
+
+void isRunningRamp() {
+  pressureRamp();
+  pressureControl(acceleration);
+  if (UseStartTime == true) {
+    startMillis = millis();
+    UseStartTime = false;
+  }
+  currentMillis = millis() - startMillis;
+    if (currentMillis - previousMillis >= timeDelay) {
+    currentTime = (currentMillis / 1000.00);
+    averagingPressure(numSamples);
+    // averagingTension(numSamples);
+    sprintf(pressure, "%.1f ", avgPressure);
+    printWords(0, 2, 16, 24, ST77XX_CYAN, pressure);
+    sprintf(selected, "%d ", sel_pressure);
+    printWords(0, 2, 106, 24, ST77XX_BLUE, selected);
+    sprintf(range, "%d/%d", lowmmHg, highmmHg);
+    dtostrf(pressRate, 4, 1, rate);
+    printWords(0, 2, 80, 44, ST77XX_CYAN, range);
+    printWords(0, 2, 90, 64, ST77XX_CYAN, rate);
+    sprintf(time, "%.2f", currentTime);
+    printWords(0, 2, 70, 84, ST77XX_WHITE, time);
+    sprintf(RunningOutputRamp, "<P1:%.2f;P2:%.2f>", avgPressure, avgPressure); //change 2nd one to 'avgTension' once VasoTracker can handle it
+    // Serial.println(RunningOutputRamp);
+    previousMillis = currentMillis;
+  }
+  while (digitalRead(enSW) == 0) {
+    runStateRamp = 0;
+    encoderPos = 0;
+    tft.fillScreen(ST77XX_BLACK);
+    printWords(0, 2, 80, 44, ST77XX_CYAN, range);
+    RampScreen(ST77XX_RED, "STOPPED");
+  }
+}
+
+void isStoppingRamp() {
+  const char *stopMenu[] = { "PAUSE", "ADJUST", "RESET?" };
+  encoderLimit(0, 2);
+  listBox(79, 109, 79, 18, ST77XX_BLACK);
+  printWords(7, 1, 88, 122, ST77XX_YELLOW, stopMenu[encoderPos]);
+  SimScreen(ST77XX_RED, "STOPPED");
+  if (currentMillis - previousMillis >= timeDelay) {
+    averagingPressure(numSamples);
+    averagingTension(numSamples);
+    sprintf(pressure, "%.1f ", avgPressure);
+    printWords(0, 2, 16, 24, ST77XX_CYAN, pressure);
+    sprintf(selected, "%d ", sel_pressure);
+    printWords(0, 2, 106, 24, ST77XX_BLUE, selected);
+    sprintf(range, "%d/%d", lowmmHg, highmmHg);
+    dtostrf(pressRate, 4, 1, rate);
+    printWords(0, 2, 80, 44, ST77XX_CYAN, range);
+    printWords(0, 2, 90, 64, ST77XX_CYAN, rate);
+    sprintf(StoppingOutputRamp, "<P1:%.2f;P2:%.2f>", avgPressure, avgPressure); //change 2nd one to 'avgTension' once VasoTracker can handle it
+    // Serial.println(StoppingOutputRamp);
+    previousMillis = currentMillis;
+  }
+  while (digitalRead(enSW) == 0) {
+    int switchChoice = encoderPos;
+    if (switchChoice == 0) {
+      runStateRamp = 2;
+      tft.fillScreen(ST7735_BLACK);
+      printWords(0, 2, 80, 44, ST77XX_CYAN, range);
+      RampScreen(ST77XX_ORANGE, "PAUSED");
+      encoderPos = sel_pressure;
+      prevmillis = currentMillis;
+    }
+    if (switchChoice == 1) {
+      tft.fillScreen(ST7735_BLACK);
+      delay(100);
+      rampAdjust();
+      // selectAccelAdjust();
+      tft.fillScreen(ST7735_BLACK);
+      encoderPos = 0;
+    }
+    if (switchChoice == 2) {
+      writingToFlash();
+      delay(200);
+      calibrate.write(calib);
+      delay(200);
+      NVIC_SystemReset();
+    }
+  }
 }
 
 // SIM pause path: allow safe parameter tweaks while simulation is paused; manual writes gated if PC active.
 void isPausedSim() {
-  if (!_vm_pcActive) { sel_pressure = encoderPos; }
-currentMillis = millis() - startMillis;
+  if (!_vm_pcActive) {
+    sel_pressure = encoderPos;
+  }
+  currentMillis = millis() - startMillis;
   pressureControl(acceleration);
   if (currentMillis - previousMillis >= timeDelay) {
     // currentTime = (currentMillis / 1000.00);
@@ -1540,7 +1809,7 @@ currentMillis = millis() - startMillis;
     printWords(0, 2, 80, 44, ST77XX_CYAN, range);
     printWords(0, 2, 90, 64, ST77XX_CYAN, rate);
     sprintf(RunningOutputSim, "<P1:%.2f;P2:%.2f>", avgPressure, avgPressure); //change 2nd one to 'avgTension' once VasoTracker can handle it
-    Serial.println(RunningOutputSim);
+    // Serial.println(RunningOutputSim);
     previousMillis = currentMillis;
   }
   while (digitalRead(enSW) == 0) {
@@ -1548,65 +1817,89 @@ currentMillis = millis() - startMillis;
       tft.fillScreen(ST7735_BLACK);
       printWords(0, 2, 80, 44, ST77XX_CYAN, range);
       SimScreen(ST77XX_GREEN, "RUNNING");
-      // encoderPos = sel_pressure;
       prevmillis = currentMillis;
-      // UseStartTime = true;
+      UseStartTime = true;
+  }
+}
+
+void isRunningSim() {
+  if (expType == 1) {
+    triangle();
+  }
+  if (UseStartTime == true) {
+    startMillis = millis();
+    UseStartTime = false;
+  }
+  currentMillis = millis() - startMillis;
+  if (currentMillis - previousMillis >= timeDelay) {
+    averagingPressure(numSamples);
+    // averagingTension(numSamples);
+    currentTime = (currentMillis / 1000.00);
+    sprintf(pressure, "%.1f ", avgPressure);
+    printWords(0, 2, 16, 24, ST77XX_CYAN, pressure);
+    // sprintf(tension, "%.1f  ", avgTension);
+    // printWords(0, 2, 106, 24, ST77XX_CYAN, tension);
+    sprintf(rate, "%-.2f", pulseRate);
+    sprintf(time, "%-.1f", currentTime);
+    printWords(0, 2, 80, 64, ST77XX_CYAN, rate);
+    printWords(0, 2, 80, 84, ST77XX_CYAN, time);
+    sprintf(RunningOutputSim, "%-.2f; %.2f; %.2f; %.1f", currentTime, avgPressure, avgTension, actualRate);
+    // Serial.println(RunningOutputSim);
+    previousMillis = currentMillis;
+  }
+  while (digitalRead(enSW) == 0) {
+    runStateSim = 0;
+    encoderPos = 0;
+    tft.fillScreen(ST77XX_BLACK);
   }
 }
 
 void isStoppingSim() {
-  const char *stopMenu[] = { "PAUSE", "ADJUST", "RESET?" };
+  int switchChoice;
+  const char *stopMenu[] = { "UNPAUSE", "ADJUST", "RESET?" };
   encoderLimit(0, 2);
   listBox(79, 109, 79, 18, ST77XX_BLACK);
   printWords(7, 1, 88, 122, ST77XX_YELLOW, stopMenu[encoderPos]);
-  // SimScreen(ST77XX_RED, "STOPPED");
+  SimScreen(ST77XX_RED, "STOPPING");
   if (currentMillis - previousMillis >= timeDelay) {
     averagingPressure(numSamples);
-    averagingTension(numSamples);
+    // averagingTension(numSamples);
     sprintf(pressure, "%.1f ", avgPressure);
     printWords(0, 2, 16, 24, ST77XX_CYAN, pressure);
-    sprintf(selected, "%d ", sel_pressure);
-    printWords(0, 2, 106, 24, ST77XX_BLUE, selected);
+    sprintf(tension, "%.1f  ", avgTension);
+    printWords(0, 2, 106, 24, ST77XX_CYAN, tension);
     sprintf(range, "%d/%d", minmmHg, maxmmHg);
-    dtostrf(actualRate, 4, 1, rate);
+    dtostrf(pulseRate, 4, 1, rate);
     printWords(0, 2, 80, 44, ST77XX_CYAN, range);
-    printWords(0, 2, 90, 64, ST77XX_CYAN, rate);
-    sprintf(RunningOutputSim, "<P1:%.2f;P2:%.2f>", avgPressure, avgPressure); //change 2nd one to 'avgTension' once VasoTracker can handle it
-    Serial.println(RunningOutputSim);
+    printWords(0, 2, 80, 64, ST77XX_CYAN, rate);
     previousMillis = currentMillis;
   }
   while (digitalRead(enSW) == 0) {
-    int switchChoice = encoderPos;
+    switchChoice = encoderPos;
     if (switchChoice == 0) {
-      runStateSim = 2;
+      numSteps = (maxmmHg - minmmHg) * multiplier;
+      pulseInt = (60000000 / pulseRate) / (2 * numSteps);
+      runStateSim = 1;
       tft.fillScreen(ST7735_BLACK);
       printWords(0, 2, 80, 44, ST77XX_CYAN, range);
-      SimScreen(ST77XX_ORANGE, "PAUSED");
-      encoderPos = sel_pressure;
+      SimScreen(ST77XX_GREEN, "RUNNING");
+      // printHeader();
       prevmillis = currentMillis;
     }
     if (switchChoice == 1) {
       tft.fillScreen(ST7735_BLACK);
       delay(100);
       simAdjust();
-      selectAccelAdjust();
+      simMultiplierAdjust();
       tft.fillScreen(ST7735_BLACK);
       encoderPos = 0;
     }
     if (switchChoice == 2) {
       writingToFlash();
       delay(200);
-      simulation.write(sim);
-      delay(200);
+      calibrate.write(calib);
+      delay(200); 
       NVIC_SystemReset();
     }
-  }
-  unsigned long _now = millis();
-  if (_now >= _vm_nextDataMs) {
-    _vm_nextDataMs += (1000UL / VM_TELEMETRY_HZ);
-    // Telemetry line @ ~VM_TELEMETRY_HZ
-    Serial.print(F("DATA T=")); Serial.print(_now);
-    Serial.print(F(" P="));     Serial.print(avgPressure, 2);   // your measured pressure variable
-    Serial.print(F(" P_SET=")); Serial.println(sel_pressure);   // your applied target
   }
 }
