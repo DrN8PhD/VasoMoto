@@ -230,8 +230,8 @@ static String _vm_line;                          // tiny line buffer
 
 //acknowledge a host SET command with the current millis() timestamp.
 static void _vm_send_ack(int p_int) { 
-  // Serial.print(F("ACK SET P=")); Serial.print(p_int);       
-  // Serial.print(F(" T="));        Serial.println(millis());
+  Serial.print(F("ACK SET P=")); Serial.print(p_int);       
+  Serial.print(F(" T="));        Serial.println(millis());
 }
 
 // Expect exactly: "SET P=80.0" (whitespace-insensitive on either side)
@@ -583,10 +583,10 @@ void calibration() {
   if (choice == 2) {
     // tft.fillScreen(ST77XX_BLACK);
     calibrationOrder = 0;
-    pLowADC = 261; //261 or 711 for andres
+    pLowADC = 487; //261 or 711 for andres
     pLowSel = 0;
-    pHiADC =  7930; //7930 or 7877 for andres
-    pHiSel = 82; //82 or 78 for andres
+    pHiADC =  20638; //7930 or 7877 for andres
+    pHiSel = 200; //82 or 78 for andres
     calWords();
     calNums();
     offsetPressure();
@@ -1037,7 +1037,6 @@ void pressureRamp() {
   else if (sel_pressure <= lowmmHg) {
     direction = 1;        // Start counting up
   }
-  // Serial.println(sel_pressure);
 }
 
 void PressureADCHigh() {
@@ -1615,8 +1614,8 @@ void isRunningMoto() {
     sprintf(tension, "%.1f  ", avgTension);
     sprintf(time, "%.2f", currentTime);
     // printWords(0, 2, 106, 24, ST77XX_CYAN, tension);
-    sprintf(RunningOutputMoto, "<P1:%.2f;P2:%.2f>", avgPressure, avgPressure); //change 2nd one to 'avgTension' once VasoTracker can handle it
-    // Serial.println(RunningOutputMoto);
+    sprintf(RunningOutputMoto, "DATA T=%lu P=%.2f P_SET=%d", currentMillis, avgPressure, sel_pressure);
+    Serial.println(RunningOutputMoto);
     sprintf(selected, "%d ", sel_pressure);
     printWords(0, 3, 106, 48, ST77XX_BLUE, selected);  
     coloring = ((encoderPos - avgPressure) * 0.5);
@@ -1644,8 +1643,8 @@ void isStoppingMoto() {
     printWords(0, 2, 16, 24, ST77XX_CYAN, pressure);
     sprintf(tension, "%.1f  ", avgTension);
     printWords(0, 2, 106, 24, ST77XX_CYAN, tension);
-    // sprintf(StoppingOutputMoto, "<P1:%.2f;P2:%.2f>", avgPressure, avgPressure); //change 2nd one to 'avgTension' once VasoTracker can handle it
-    // Serial.println(StoppingOutputMoto);
+    sprintf(StoppingOutputMoto, "DATA T=%lu P=%.2f P_SET=%d", currentMillis, avgPressure, sel_pressure);
+    Serial.println(StoppingOutputMoto);
     previousMillis = currentMillis;
   }
   while (digitalRead(enSW) == 0) {
@@ -1661,14 +1660,6 @@ void isStoppingMoto() {
     if (switchChoice == 1) {
       NVIC_SystemReset();
     }
-  }
-  unsigned long _now = millis();
-  if (_now >= _vm_nextDataMs) {
-    _vm_nextDataMs += (1000UL / VM_TELEMETRY_HZ);
-    // Telemetry line @ ~VM_TELEMETRY_HZ
-    // Serial.print(F("DATA T=")); Serial.print(_now);
-    // Serial.print(F(" P="));     Serial.print(avgPressure, 2);   // your measured pressure variable
-    // Serial.print(F(" P_SET=")); Serial.println(sel_pressure);   // your applied target
   }
 }
 
@@ -1691,8 +1682,8 @@ void isPausedRamp() {
     dtostrf(pressRate, 4, 1, rate);
     printWords(0, 2, 80, 44, ST77XX_CYAN, range);
     printWords(0, 2, 90, 64, ST77XX_CYAN, rate);
-    sprintf(RunningOutputRamp, "<P1:%.2f;P2:%.2f>", avgPressure, avgPressure); //change 2nd one to 'avgTension' once VasoTracker can handle it
-    // Serial.println(RunningOutputRamp);
+    sprintf(RunningOutputRamp, "DATA T=%lu P=%.2f P_SET=%d", currentMillis, avgPressure, sel_pressure);
+    Serial.println(RunningOutputRamp);
     previousMillis = currentMillis;
   }
   while (digitalRead(enSW) == 0) {
@@ -1727,8 +1718,8 @@ void isRunningRamp() {
     printWords(0, 2, 90, 64, ST77XX_CYAN, rate);
     sprintf(time, "%.2f", currentTime);
     printWords(0, 2, 70, 84, ST77XX_WHITE, time);
-    sprintf(RunningOutputRamp, "<P1:%.2f;P2:%.2f>", avgPressure, avgPressure); //change 2nd one to 'avgTension' once VasoTracker can handle it
-    // Serial.println(RunningOutputRamp);
+    sprintf(RunningOutputRamp, "DATA T=%lu P=%.2f P_SET=%d", currentMillis, avgPressure, sel_pressure);
+    Serial.println(RunningOutputRamp);
     previousMillis = currentMillis;
   }
   while (digitalRead(enSW) == 0) {
@@ -1757,8 +1748,8 @@ void isStoppingRamp() {
     dtostrf(pressRate, 4, 1, rate);
     printWords(0, 2, 80, 44, ST77XX_CYAN, range);
     printWords(0, 2, 90, 64, ST77XX_CYAN, rate);
-    sprintf(StoppingOutputRamp, "<P1:%.2f;P2:%.2f>", avgPressure, avgPressure); //change 2nd one to 'avgTension' once VasoTracker can handle it
-    // Serial.println(StoppingOutputRamp);
+   sprintf(StoppingOutputRamp, "DATA T=%lu P=%.2f P_SET=%d", currentMillis, avgPressure, sel_pressure);
+    Serial.println(StoppingOutputRamp);
     previousMillis = currentMillis;
   }
   while (digitalRead(enSW) == 0) {
@@ -1791,9 +1782,6 @@ void isStoppingRamp() {
 
 // SIM pause path: allow safe parameter tweaks while simulation is paused; manual writes gated if PC active.
 void isPausedSim() {
-  if (!_vm_pcActive) {
-    sel_pressure = encoderPos;
-  }
   currentMillis = millis() - startMillis;
   pressureControl(acceleration);
   if (currentMillis - previousMillis >= timeDelay) {
@@ -1808,8 +1796,8 @@ void isPausedSim() {
     dtostrf(actualRate, 4, 1, rate);
     printWords(0, 2, 80, 44, ST77XX_CYAN, range);
     printWords(0, 2, 90, 64, ST77XX_CYAN, rate);
-    sprintf(RunningOutputSim, "<P1:%.2f;P2:%.2f>", avgPressure, avgPressure); //change 2nd one to 'avgTension' once VasoTracker can handle it
-    // Serial.println(RunningOutputSim);
+    sprintf(RunningOutputSim, "DATA T=%lu P=%.2f P_SET=%d", currentMillis, avgPressure, sel_pressure);
+    Serial.println(RunningOutputSim);
     previousMillis = currentMillis;
   }
   while (digitalRead(enSW) == 0) {
@@ -1843,8 +1831,8 @@ void isRunningSim() {
     sprintf(time, "%-.1f", currentTime);
     printWords(0, 2, 80, 64, ST77XX_CYAN, rate);
     printWords(0, 2, 80, 84, ST77XX_CYAN, time);
-    sprintf(RunningOutputSim, "%-.2f; %.2f; %.2f; %.1f", currentTime, avgPressure, avgTension, actualRate);
-    // Serial.println(RunningOutputSim);
+    sprintf(RunningOutputSim, "DATA T=%lu P=%.2f P_SET=%d", currentMillis, avgPressure, sel_pressure);
+    Serial.println(RunningOutputSim);
     previousMillis = currentMillis;
   }
   while (digitalRead(enSW) == 0) {
@@ -1872,6 +1860,8 @@ void isStoppingSim() {
     dtostrf(pulseRate, 4, 1, rate);
     printWords(0, 2, 80, 44, ST77XX_CYAN, range);
     printWords(0, 2, 80, 64, ST77XX_CYAN, rate);
+    sprintf(StoppingOutputSim, "DATA T=%lu P=%.2f P_SET=%d", currentMillis, avgPressure, sel_pressure);
+    Serial.println(StoppingOutputSim);
     previousMillis = currentMillis;
   }
   while (digitalRead(enSW) == 0) {
@@ -1883,7 +1873,7 @@ void isStoppingSim() {
       tft.fillScreen(ST7735_BLACK);
       printWords(0, 2, 80, 44, ST77XX_CYAN, range);
       SimScreen(ST77XX_GREEN, "RUNNING");
-      // printHeader();
+      printHeader();
       prevmillis = currentMillis;
     }
     if (switchChoice == 1) {
