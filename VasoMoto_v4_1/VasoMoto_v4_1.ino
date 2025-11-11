@@ -459,7 +459,7 @@ void bootup() {
       buffidx++;
     }
   }
-  printWords(0, 1, 80, 120, ST77XX_RED, "v4.1.3");
+  printWords(0, 1, 80, 120, ST77XX_RED, "v4.1.4");
     if (calib.valid_init == false) {
     delay(1000);
     tft.fillRect(0, 100, 160, 28, ST77XX_BLACK);
