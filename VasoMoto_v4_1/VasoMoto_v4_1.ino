@@ -1604,9 +1604,9 @@ void isRunningMoto() {
     sel_pressure = encoderPos; 
   }
   currentMillis = millis() - startMillis;
-  pressureControl(acceleration);
   if (currentMillis - previousMillis >= timeDelay) {
-    currentTime = (currentMillis / 1000.00);
+    pressureControl(acceleration);
+     currentTime = (currentMillis / 1000.00);
     averagingPressure(numSamples);
     averagingTension(numSamples);
     sprintf(pressure, "%.1f  ", avgPressure);
