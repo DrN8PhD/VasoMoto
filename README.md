@@ -13,6 +13,9 @@ This system is also capable of simulating pulsatile changes in pressure at rates
 
 ***Use at your own peril with other microcontrollers. I tried to clearly label what pins should be changed, but it's possible to incinerate your microcontroller if pin assignments are incorrect.***
 --
+## v4.2
+* First major update. I noticed that the sampling rate was too high relative to the pressure sensing resolution, resulting in weird pressure oscillations that I couldn't notice until we were tracking pressure with VasoTracker 2. This should all be fixed, resulting in better, more accurate pressure regulation. It's a bit slower for the line filling at first, but this is a small price to pay for healthier vessels.
+
 ## v4.1.1
 * Added slow pressure ramp. This is different than the step protocol in VasoTracker. This slowly increases the set pressure at a given rate in mmHg/minute.
   
