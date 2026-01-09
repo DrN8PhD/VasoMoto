@@ -119,6 +119,7 @@
 
 /*Flash storage definitions and matrices*/
    struct cal_matrix {       //place to store all the values needed for linear calibration of sensors.
+    bool redo_init;
     bool valid_cal;
     bool valid_init;
     bool valid_ramp;
@@ -434,6 +435,18 @@ void advancedSettings() {
   bootup();
 }
 
+void advancedSettingsAdjust() {
+  tft.fillScreen(ST7735_BLACK);
+  initScreenAdv();
+  selectNumSamples();
+  selectTimeDelay();
+  selectFilterWeight();
+  selectMultiplier();
+  selectAcceleration();
+  delay(100);
+  tft.fillScreen(ST7735_BLACK);
+}
+
 // Acquire and filter pressure ADC samples, producing a smoothed 'avgPressure' reading.
 void averagingPressure(int q) {
   // avgPressure = ads.measure(txdx1);
@@ -466,11 +479,13 @@ void bootup() {
     tft.fillRect(0, 100, 160, 28, ST77XX_BLACK);
     printWords(8, 1, 1, 111, ST77XX_YELLOW, "First Complete Setup");
     delay(1000);
-    numSamples = 30;
-    timeDelay = 50;
-    multiplier = 5;
-    filterWeight = 9;
-    acceleration = 500;
+    if (calib.redo_init == false) {
+      numSamples = 30;
+      timeDelay = 50;
+      multiplier = 5;
+      filterWeight = 9;
+      acceleration = 500;
+    }
     advancedSettings();  
   }
 }
@@ -661,7 +676,7 @@ void calWords() {
 
 // Mode selection UI: lets user pick RUN/SIM/ADV paths.
 void chooseMode() {
-  const char *modeMenu[] = {"Turn to Select Mode","Pressure Control","Pressure Ramp","Pulse Simulator","Advanced Settings" };
+  const char *modeMenu[] = {"Turn to Select Mode","   Pressure Control","    Pressure Ramp","   Pulse Simulator"," Change Advanced" };
   encoderPos = 0;
   while (digitalRead(enSW)) {
     encoderLimit(0, 4);
@@ -694,9 +709,12 @@ void chooseMode() {
     }
     if (switchChoice == 4) {
       printWords(8, 1, 7, 111, 0xfb2c, modeMenu[encoderPos]);  
+      calib.valid_init = false;
+      calib.redo_init = true;
       delay(500);
-      advancedSettings();
-      tft.fillScreen(ST77XX_BLACK);
+      writingToFlash();
+      calibrate.write(calib);
+      NVIC_SystemReset();
     }
   }
 }
@@ -1630,10 +1648,10 @@ void isRunningMoto() {
 }
 
 void isStoppingMoto() {
-  const char *stopMenu[] = { "UNPAUSE", "RESET?" };
-  encoderLimit(0, 1);
+  const char *stopMenu[] = { "UNPAUSE", "RESET?", "ADVANCED" };
+  encoderLimit(0, 2);
   listBox(79, 109, 79, 18, ST77XX_BLACK);
-  printWords(7, 1, 88, 122, ST77XX_YELLOW, stopMenu[encoderPos]);
+  printWords(7, 1, 82, 122, ST77XX_YELLOW, stopMenu[encoderPos]);
   sprintf(selected, "%d ", sel_pressure);
   MotoScreen(ST77XX_RED, "STOPPED");
   if (currentMillis - previousMillis >= timeDelay) {
@@ -1658,7 +1676,17 @@ void isStoppingMoto() {
       goDown = maxDelay;
     }
     if (switchChoice == 1) {
+      writingToFlash();
+      delay(200);
+      calibrate.write(calib);
+      delay(200);
       NVIC_SystemReset();
+    }
+    if (switchChoice == 2) {
+      tft.fillScreen(ST7735_BLACK);
+      delay(100);
+      advancedSettingsAdjust();
+      encoderPos = 0;
     }
   }
 }
