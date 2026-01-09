@@ -1,5 +1,5 @@
 /*
- * VasoMoto v4.1.0 — Brief Commented Edition
+ * VasoMoto v4.2 — Brief Commented Edition
  * Purpose: Add concise, high-level explanations above major functions and logic blocks,
  *          without changing any behavior. For lab collaborators and future maintainers.
  *
@@ -11,7 +11,7 @@
 /* This version includes external input to change pressure. All tension recording functions are disabled. Can be re-enabled for a second pressure
    transducer, but name should be changed to prevent confusion. */
 
-/* NOTE: This version (4.1.0) is also specifically adapted to do slow pressure increases over time. The fast pulse functionality is removed
+/* NOTE: This version (4.2) is also specifically adapted to do slow pressure increases over time. The fast pulse functionality is removed
    in favor of this. For rapid pulse pressure shifting, see version 4.0.1.*/
 
 #include <Wire.h>
@@ -88,7 +88,8 @@
   int pulseCounter = 0;
   float tempRate = 0.0;
   float actualRate = 0.0;
-  int maxDelay = 10000;   //  Used in pressureControl to easily alter how slow the stepper starts, so I dont have to change in 12 places.
+  int minDelay = 1000;
+  int maxDelay = 50000;   //  Used in pressureControl to easily alter how slow the stepper starts, so I dont have to change in 12 places.
   int numSteps = 0;
   int stepCounter = 0;
   int stepsPerSec = 200;  //This is WHOLE steps per sec; the fractionation is accounted for later.
@@ -288,7 +289,7 @@ void setup() {
   ads.linearCal(pLowADC, pHiADC, pLowSel, pHiSel);
   // ads.linearCal(tLowADC, tHiADC, tLowSel, tHiSel); //this is solely for using second transducer. 
   if(mode == 1) {
-    stepper.setStepFrac(8);
+    stepper.setStepFrac(64);
     delay(500);
   }
   if(mode == 2) {
@@ -459,17 +460,17 @@ void bootup() {
       buffidx++;
     }
   }
-  printWords(0, 1, 80, 120, ST77XX_RED, "v4.1.3");
+  printWords(0, 1, 80, 120, ST77XX_RED, "v4.2");
     if (calib.valid_init == false) {
     delay(1000);
     tft.fillRect(0, 100, 160, 28, ST77XX_BLACK);
     printWords(8, 1, 1, 111, ST77XX_YELLOW, "First Complete Setup");
     delay(1000);
-    numSamples = 10;
+    numSamples = 30;
     timeDelay = 50;
     multiplier = 5;
-    filterWeight = 3;
-    acceleration = 50;
+    filterWeight = 9;
+    acceleration = 500;
     advancedSettings();  
   }
 }
@@ -516,7 +517,7 @@ void calibration() {
     printWords(9, 1, 90, 39, 0xfb2c, calMenu[choice]);
   }
   if (choice == 0) {
-    sprintf(debugging, "%d;%d;%0.1f;%d;%d;%0.1f;%0.1f;%d;%d;%d;%d;%d;%d;%d;%d", timeDelay,filterWeight,multiplier,acceleration,numSamples,pLowSel,pHiSel, pLowADC, pHiADC,lowmmHg, highmmHg, pressRate, minmmHg, maxmmHg, pulseRate); Serial.println(debugging);
+	// sprintf(debugging, "%d;%d;%0.1f;%d;%d;%0.1f;%0.1f;%d;%d;%d;%d;%d;%d;%d;%d", timeDelay,filterWeight,multiplier,acceleration,numSamples,pLowSel,pHiSel, pLowADC, pHiADC,lowmmHg, highmmHg, pressRate, minmmHg, maxmmHg, pulseRate); Serial.println(debugging);
     if (calib.valid_cal == true) {
       calibrationOrder = 0;
       calWords();
@@ -984,14 +985,13 @@ void oscillate(float z) {
 // Closed-loop control toward 'sel_pressure' using 'avgPressure'; applies clamps/rate limits and drives the actuator.
 void pressureControl(int accel) {
   float motors;
-  int minDelay = 500;
   currentMicros = millis();                     //I know the variable is named weird. I didnt want to go back and change it again for no reason.
   motors = (sel_pressure - avgPressure);
-  if (motors <= -0.3) {
+  if (motors <= -0.4) {
     if (currentMicros - previousMicros >= accel) {
       goDown = maxDelay;
       if (goUp > minDelay){
-      x = x + 10;
+      x = x + 2;
       goUp = goUp - x;    
     }
     else {
@@ -1001,11 +1001,11 @@ void pressureControl(int accel) {
     }
     stepper.move(1, goUp, 1);
   }
-   else if (motors >= 0.3) {
+  else if (motors >= 0.4) {
     if (currentMicros - previousMicros >= accel) {
       goUp = maxDelay;
       if (goDown > minDelay) {
-        y = y + 10;
+        y = y + 2;
         goDown = goDown - y;
       }
       else {
@@ -1018,8 +1018,8 @@ void pressureControl(int accel) {
     else {
       goUp = maxDelay;
       goDown = maxDelay;
-      x = 1;
-      y = 1;
+      x = 0;
+      y = 0;
       stepper.move(0, 0, -1);
   }
 }
