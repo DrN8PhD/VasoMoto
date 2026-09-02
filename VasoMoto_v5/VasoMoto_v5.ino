@@ -1,11 +1,8 @@
 /*
- VasoMoto v4.3
+ VasoMoto v5.0
 
-- This version includes external input to change pressure. All tension recording functions are disabled. Can be re-enabled for a second pressure
-    transducer, but name should be changed to prevent confusion.
-- Included menu update in "advanced" to select 1 or 2 transducers. Renamed "txDx1 and "txDx2" to prevent confsion.
-- This version (4.2 or later) is also specifically adapted to do slow pressure increases over time. The fast pulse functionality is removed
-    in favor of this. For rapid pulse pressure shifting, see version 4.0.1.*/
+- All parts are fully functional now. No need to reset to start over; logic state engine overhauled.
+- Included menu update in "advanced" to select 1 or 2 transducers. Renamed "txDx1 and "txDx2" to prevent confsion. */
 
 #include <Wire.h>
 #include "bitmaps.h"
@@ -79,45 +76,20 @@ void updateEncoderPolled() {
   }
 }
 
-  // void fpinDC() {
-  //   bool aState = digitalRead(pinDC);
-  //   bool bState = digitalRead(pinCS);
-  //   if (aState && bState && aFlag) {  //check that we have both pins at detent (HIGH) and that we are expecting detent on this pin's rising edge
-  //     encoderPos--;                      //decrement the encoder's position count
-  //     box = !box;
-  //     bFlag = 0;  //reset flags for the next turn
-  //     aFlag = 0;  //reset flags for the next turn
-  //   } else if (bState) {
-  //     bFlag = 1;
-  //   }
-  // }
-  // void fpinCS() {
-  //   bool aState = digitalRead(pinDC);
-  //   bool bState = digitalRead(pinCS);
-  //   if (aState && bState && bFlag) {  // Both at detent and expecting rising edge on B
-  //     encoderPos++;                   
-  //     box = !box;
-  //     bFlag = 0;  
-  //     aFlag = 0;  
-  //   } else if (aState) {
-  //     aFlag = 1;
-  //   }
-  // }
-
-  bool isButtonPressed(uint8_t pin, bool &lastState) {
-    bool currentState = digitalRead(pin);
-    bool triggered = false;
-    if (currentState != lastState) {
-      if ((millis() - lastDebounceTime) > debounceDelay) {
-        lastDebounceTime = millis();
-        if (currentState == LOW) {
-          triggered = true;
-        }
-        lastState = currentState;
+bool isButtonPressed(uint8_t pin, bool &lastState) {
+  bool currentState = digitalRead(pin);
+  bool triggered = false;
+  if (currentState != lastState) {
+    if ((millis() - lastDebounceTime) > debounceDelay) {
+      lastDebounceTime = millis();
+      if (currentState == LOW) {
+        triggered = true;
       }
+      lastState = currentState;
     }
-    return triggered;
   }
+  return triggered;
+}
 
 /*Stepper Setup*/
   Stepper stepper(0, 9, 7, 5, 2, 3);
@@ -323,8 +295,6 @@ void setup() {
   pinMode(exSW, INPUT_PULLUP);
   pinMode(pinCS, INPUT_PULLUP);
   pinMode(pinDC, INPUT_PULLUP);
-  // attachInterrupt(pinDC, fpinDC, CHANGE);
-  // attachInterrupt(pinCS, fpinCS, CHANGE);
   stepper.begin();
   tft.initR(INITR_GREENTAB);
   tft.initR(INITR_BLACKTAB);
@@ -953,7 +923,6 @@ void lineFilling() {
     }
     stateInit = false;
   }
-  // updateSensors(calib.filterWeight);
     if (encoderPos != lastEncoderPos) {
       if (!_vm_pcActive) { 
         sel_pressure = encoderPos; 
@@ -1968,8 +1937,8 @@ void isRunningSim() {
     printWords(0, 2, 80, 64, ST77XX_CYAN, rate);
     printWords(0, 2, 80, 84, ST77XX_CYAN, time);
     snprintf(RunningOutputSim, sizeof(RunningOutputRamp), "DATA T=%lu P=%.2f P_SET=%.0f", elapsedMillis, avgPressure, sel_pressure);
-    // Serial.println(RunningOutputSim);
-    Serial.println(pressure);
+    Serial.println(RunningOutputSim);
+    // Serial.println(pressure);
     previousMillis = currentMillis;
   }
   if (isButtonPressed(enSW, lastEnSWState) || isButtonPressed(exSW, lastExSWState)) {
