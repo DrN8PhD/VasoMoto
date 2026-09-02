@@ -817,7 +817,6 @@ void fillFast() {
   int stepDelay = 1000;
   stepper.setStepFrac(8);
   float filler;
-  avgPressure = ads.measure(txdx1);
   filler = (encoderPos - avgPressure);
   if (filler <= -1) {
     stepper.move(1, stepDelay, -1);
@@ -932,6 +931,7 @@ void lineFilling() {
     currentMillis = millis();
     fillFast();
     if (currentMillis - previousMillis >= outputDelay) {
+      avgPressure = ads.measure(txdx1);
       sprintf(selected, " %.0f ", sel_pressure);
       sprintf(pressure, "%.0f ", avgPressure);
       printWords(0, 3, 80, 2, ST77XX_WHITE, pressure);
