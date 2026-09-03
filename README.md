@@ -11,6 +11,8 @@ This system is also capable of simulating pulsatile changes in pressure at rates
 * The parts list and assembly manual are also included in the release packages.
 * This system requires a custom PCB. This is available at a nominal cost through the [Cubi<sup>3</sup>C Core Facility](https://phmtox.msu.edu/facilities/cubi3c) at Michigan State University. Costs will vary depending on the level of assembly you want, but I assure you -- it's far less than any other system on the market.
 
+## v5.0.1
+* Bug fixes I missed. 
 ## v5.0
 * This is a complete overhaul of the system's code. Changes for increased stability, better responsiveness and accuracy. Also maintains backward compatibility with original systems.
 * Pressure ramps and pulse simulation are functional.
