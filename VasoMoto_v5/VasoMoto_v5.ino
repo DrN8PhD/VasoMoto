@@ -913,13 +913,11 @@ void initLineFilling() {
 
 void lineFilling() {
   static int lastEncoderPos = -1;
-  int mmHg = calib.minmmHg;
   if (stateInit) {
+    ads.linearCal(calib.pLowADC, calib.pHiADC, calib.pLowSel, calib.pHiSel);
     lastEncoderPos = -1;
     initLineFilling();
-    if (mmHg > 0) {
-      encoderPos = mmHg;
-    }
+    encoderPos = 0;
     stateInit = false;
   }
     if (encoderPos != lastEncoderPos) {
