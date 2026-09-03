@@ -994,7 +994,6 @@ void offsetPressure() {
     lastEncoderPos = encoderPos;
   }
   if (currentMillis - previousMillis >= calib.timeDelay) {
-    Serial.println(encoderPos);
     for (uint8_t i = 0; i < numSamples; i++) {
       updateEncoderPolled();
       ads.linearCal(tempLowADC, tempHighADC, calib.pLowSel, calib.pHiSel);
