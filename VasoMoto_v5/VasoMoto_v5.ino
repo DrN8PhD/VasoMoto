@@ -989,12 +989,14 @@ void offsetPressure() {
   }
   char buffer[10];
   if (encoderPos != lastEncoderPos) {
-    tempLowADC -= ((encoderPos - lastEncoderPos) * 10);
-    tempHighADC -= ((encoderPos - lastEncoderPos) * 10);
+    tempLowADC = calib.pLowADC - (encoderPos * 10);
+    tempHighADC = calib.pHiADC - (encoderPos * 10);
     lastEncoderPos = encoderPos;
   }
   if (currentMillis - previousMillis >= calib.timeDelay) {
+    Serial.println(encoderPos);
     for (uint8_t i = 0; i < numSamples; i++) {
+      updateEncoderPolled();
       ads.linearCal(tempLowADC, tempHighADC, calib.pLowSel, calib.pHiSel);
       avgSample += ads.measure(txdx1);
     }
@@ -1037,12 +1039,13 @@ void offsetTension() {
   }
   char buffer[10];
   if (encoderPos != lastEncoderPos) {
-    tempLowADC -= (encoderPos - lastEncoderPos);
-    tempHighADC -= (encoderPos - lastEncoderPos);
+    tempLowADC = calib.tLowADC - (encoderPos * 10);
+    tempHighADC = calib.tHiADC - (encoderPos * 10);
     lastEncoderPos = encoderPos;
   }
   if (currentMillis - previousMillis >= calib.timeDelay) {
     for (uint8_t i = 0; i < numSamples; i++) {
+      updateEncoderPolled();
       ads.linearCal(tempLowADC, tempHighADC, calib.tLowSel, calib.tHiSel);
       avgSample += ads.measure(txdx2);
     }
