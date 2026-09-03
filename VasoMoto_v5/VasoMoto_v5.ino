@@ -540,7 +540,7 @@ void bootup() {
       buffidx++;
     }
   }
-  drawCentreString("v5.0",80,120,ST77XX_GREEN);
+  drawCentreString("v5.0.1",80,120,ST77XX_GREEN);
   delay(1000);
   if (calib.valid_init == false) {
     delay(1000);
